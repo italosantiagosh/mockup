@@ -137,29 +137,32 @@ class MedalSpec:
 # ---------------------------------------------------------------------------
 
 MEDAL_SPECS: dict[str, MedalSpec] = {
-    # Geometria de assets/base_medalha.png (1254x1254px), medida com um
-    # ajuste de circulo por minimos quadrados (nao bbox/olho): centro
-    # (636, 675), raio onde o metal SOLIDO/textured comeca (nao so onde o
-    # branco puro termina) varia ~385-403px conforme o angulo. O cliente
-    # confirmou que esse gradiente claro entre o branco e o metal (uma
-    # sombra/realce que existe no arquivo da base) deve ficar todo coberto
-    # pela foto -- ela deve encostar no metal em todas as laterais, exceto
-    # onde a argola passa por cima. inner_radius=400 + overlap_px=5 (raio
-    # final 405) cobre o pior caso (403) com folga em todo o contorno.
+    # Geometria de assets/base_medalha.png (arquivo trocado pelo cliente em
+    # 2026-08-11, agora 1080x1080px -- ATENCAO: outra resolucao do que a
+    # versao anterior, recalibrado do zero). O proprio arquivo novo traz uma
+    # linha guia sutil ciano tracando a parede interna; ela foi extraida por
+    # deteccao de cor (canal G > canal R) e ajustada por circulo de minimos
+    # quadrados: centro (530, 604), raio da linha guia ~377 (residual
+    # std ~4px). A partir desse centro, medido onde o metal SOLIDO comeca
+    # (nao so onde o branco termina): varia ~355-395px conforme o angulo
+    # (media ~376). inner_radius=390 + overlap_px=8 (raio final 398) cobre
+    # o pior caso (395) com folga, encostando no metal em todas as laterais
+    # exceto onde a argola passa por cima (conforme pedido do cliente).
     "prata_16mm": MedalSpec(
         id="prata_16mm",
         nome="Medalha redonda prata 16mm",
         base_path=ASSETS_DIR / "base_medalha.png",
         resina_path=ASSETS_DIR / "efeito_resina.png",
-        center_x=636,
-        center_y=675,
-        inner_radius=400,
-        overlap_px=5,
-        # Circulo nativo do domo de vidro dentro de assets/efeito_resina.png,
-        # medido pelo contorno escuro nitido da borda do vidro (deteccao de
-        # pixels com alpha alto e luminancia baixa): centro ~(629.5, 613),
-        # raio ~473. Sem essa correcao a resina ficava ~90px maior e
-        # deslocada ~72px para cima em relacao a parede real da base.
+        center_x=530,
+        center_y=604,
+        inner_radius=390,
+        overlap_px=8,
+        # Circulo nativo do domo de vidro dentro de assets/efeito_resina.png
+        # (arquivo separado, 1254x1254px, nao foi trocado): medido pelo
+        # contorno escuro nitido da borda do vidro, centro ~(629.5, 613),
+        # raio ~473. A escala/posicao sao recalculadas automaticamente em
+        # relacao ao novo raio/centro da base, independente do tamanho do
+        # canvas de cada arquivo.
         resina_native_cx=629.5,
         resina_native_cy=613.0,
         resina_native_radius=473.0,
