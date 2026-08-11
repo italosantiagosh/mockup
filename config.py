@@ -70,6 +70,17 @@ class MedalSpec:
     inner_radius: Optional[float] = None
     resina_radius: Optional[float] = None
 
+    # Geometria NATIVA do efeito_resina.png (onde o vidro/domo esta dentro
+    # do proprio arquivo da resina, que pode nao estar registrado no mesmo
+    # lugar/escala da cavidade da base). Quando definido, a resina inteira
+    # e escalada e deslocada para que esse circulo nativo caia exatamente
+    # sobre (center_x, center_y, resina_radius) -- ou seja, foto e resina
+    # ficam com o MESMO diametro e no MESMO lugar. Quando None, a resina e
+    # aplicada como estava (overlay direto, assumindo pre-alinhamento).
+    resina_native_cx: Optional[float] = None
+    resina_native_cy: Optional[float] = None
+    resina_native_radius: Optional[float] = None
+
     # Estimativas usadas apenas enquanto os valores em pixel acima forem None.
     # Valores de partida para uma base "medalha redonda com argola no topo",
     # baseados na leitura visual das referencias fornecidas: a argola ocupa
@@ -96,13 +107,17 @@ class MedalSpec:
             if self.inner_radius is not None
             else self.inner_radius_frac * min(w, h)
         )
+        final_r = r + self.overlap_px
         if self.resina_radius is not None:
             rr = self.resina_radius
         elif self.resina_radius_frac is not None:
             rr = self.resina_radius_frac * min(w, h)
         else:
-            rr = r
-        return ResolvedGeometry(cx, cy, r + self.overlap_px, rr)
+            # Por padrao a resina usa o MESMO diametro final da foto (mesmo
+            # lugar, mesmo tamanho), a menos que explicitamente configurada
+            # para um raio diferente.
+            rr = final_r
+        return ResolvedGeometry(cx, cy, final_r, rr)
 
     @classmethod
     def from_box(cls, id: str, nome: str, base_path: Path, resina_path: Path,
@@ -141,6 +156,14 @@ MEDAL_SPECS: dict[str, MedalSpec] = {
         center_y=685,
         inner_radius=380,
         overlap_px=3,
+        # Circulo nativo do domo de vidro dentro de assets/efeito_resina.png,
+        # medido pelo contorno escuro nitido da borda do vidro (deteccao de
+        # pixels com alpha alto e luminancia baixa): centro ~(629.5, 613),
+        # raio ~473. Sem essa correcao a resina ficava ~90px maior e
+        # deslocada ~72px para cima em relacao a parede real da base.
+        resina_native_cx=629.5,
+        resina_native_cy=613.0,
+        resina_native_radius=473.0,
     ),
 }
 

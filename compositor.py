@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageOps
 
 from config import MedalSpec, ResolvedGeometry
@@ -78,10 +79,57 @@ def fit_cover_circle(user_image: Image.Image, diameter: int) -> Image.Image:
 
 
 def _paste_layer_fullsize(canvas: Image.Image, layer: Image.Image) -> None:
-    """Aplica uma camada (base ou resina) que ja ocupa o canvas inteiro,
-    alinhada pixel a pixel (mesmo tamanho de base_medalha.png)."""
+    """Aplica uma camada (base ou resina ja pre-alinhada) que ocupa o canvas
+    inteiro, registrada pixel a pixel com base_medalha.png."""
     if layer.size != canvas.size:
         layer = layer.resize(canvas.size, Image.LANCZOS)
+    canvas.alpha_composite(layer)
+
+
+def _resize_rgba(img: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """Redimensiona RGBA com alpha premultiplicado, evitando halos escuros
+    nas bordas semi-transparentes que o resize direto do Pillow causaria."""
+    if img.size == size:
+        return img
+    arr = np.asarray(img).astype(np.float32)
+    rgb, a = arr[:, :, :3], arr[:, :, 3:4]
+    premultiplied = np.concatenate([rgb * (a / 255.0), a], axis=2).astype(np.uint8)
+    resized = np.asarray(
+        Image.fromarray(premultiplied, "RGBA").resize(size, Image.LANCZOS)
+    ).astype(np.float32)
+    out_rgb, out_a = resized[:, :, :3], resized[:, :, 3:4]
+    safe_a = np.where(out_a < 1.0, 1.0, out_a)
+    unpremultiplied = np.clip(out_rgb / (safe_a / 255.0), 0, 255)
+    result = np.concatenate([unpremultiplied, out_a], axis=2).astype(np.uint8)
+    return Image.fromarray(result, "RGBA")
+
+
+def _place_resina(canvas: Image.Image, resina: Image.Image, spec: MedalSpec,
+                   geo: ResolvedGeometry) -> None:
+    """
+    Posiciona a camada de resina para que seu proprio domo de vidro (medido
+    em spec.resina_native_*) fique com o MESMO diametro e no MESMO lugar da
+    foto do usuario (geo.center_x/y, geo.resina_radius) -- em vez de assumir
+    que efeito_resina.png ja vem pre-registrado com a base.
+
+    Se a base nao tiver geometria nativa da resina configurada, cai de volta
+    para o overlay direto de canvas inteiro (comportamento pre-calibracao).
+    """
+    if spec.resina_native_radius is None:
+        _paste_layer_fullsize(canvas, resina)
+        return
+
+    scale = geo.resina_radius / spec.resina_native_radius
+    new_size = (max(1, round(resina.width * scale)), max(1, round(resina.height * scale)))
+    resized = _resize_rgba(resina, new_size)
+
+    scaled_native_cx = spec.resina_native_cx * scale
+    scaled_native_cy = spec.resina_native_cy * scale
+    paste_x = round(geo.center_x - scaled_native_cx)
+    paste_y = round(geo.center_y - scaled_native_cy)
+
+    layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    layer.paste(resized, (paste_x, paste_y), resized)
     canvas.alpha_composite(layer)
 
 
@@ -106,9 +154,9 @@ def compose_medal(spec: MedalSpec, user_image_path: Path) -> Image.Image:
     layer.alpha_composite(circle, (paste_x, paste_y))
     canvas.alpha_composite(layer)
 
-    # 4) resina por cima (assume-se exportada no mesmo canvas/registro da
-    # base; se vier com outro tamanho, apenas escalamos para o canvas todo)
-    _paste_layer_fullsize(canvas, resina)
+    # 4) resina por cima, escalada/reposicionada para o mesmo diametro e
+    # lugar da foto (ver _place_resina)
+    _place_resina(canvas, resina, spec, geo)
 
     return canvas
 
