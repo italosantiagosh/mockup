@@ -122,12 +122,16 @@ class MedalSpec:
 # ---------------------------------------------------------------------------
 
 MEDAL_SPECS: dict[str, MedalSpec] = {
-    # Geometria medida diretamente em assets/base_medalha.png (1254x1254px):
-    # a cavidade interna (area branca isolada dentro do anel) foi detectada
-    # por analise de componentes conexos, centro ~(645, 685), raio ~375-384
-    # dependendo do limiar usado na borda anti-aliased. inner_radius=380 +
-    # overlap_px=3 cobre essa faixa e garante que a foto va ligeiramente
-    # por baixo da parede metalica (sem sobrar aro branco/transparente).
+    # Geometria medida diretamente em assets/base_medalha.png (1254x1254px)
+    # via varredura radial e confirmada visualmente pelo cliente: o overlay
+    # de calibracao com center_x=645, center_y=685, inner_radius=380,
+    # overlap_px=3 (raio final 383) foi validado como o encaixe correto
+    # (encosta na parede interna em todo o contorno; o pequeno trecho perto
+    # da argola nao precisa de cobertura porque a propria argola fica por
+    # cima na composicao final). Nao aumentar o raio alem disso: em zoom
+    # extremo (4-5x) aparece um gradiente claro natural do proprio metal
+    # perto da parede, mas em escala normal de visualizacao nao e visivel
+    # e cobrir mais far ia a foto invadir a textura do anel.
     "prata_16mm": MedalSpec(
         id="prata_16mm",
         nome="Medalha redonda prata 16mm",
