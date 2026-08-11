@@ -10,26 +10,17 @@ recorte "cover" + máscara circular + alpha compositing com Pillow, na ordem:
    interna, sem deformar, sem sobrar borda)
 4. `assets/efeito_resina.png` (vidro/resina, reflexos, sombra da resina)
 
-## ⚠️ Ainda faltam os arquivos reais
+## Status
 
-Este repositório contém o **programa completo e testado**, mas os
-arquivos reais da medalha (`base_medalha.png`, `efeito_resina.png`) e as
-imagens de referência/teste que você enviou no chat não chegaram ao
-repositório — eu só consigo *ver* imagens coladas na conversa, não
-recebo os bytes do arquivo. Para gerar o `teste_composicao.png` de
-verdade e calibrar as coordenadas com precisão, adicione ao branch:
-
-```
-assets/base_medalha.png
-assets/efeito_resina.png
-referencias/*.png      # medalhas reais prontas (opcional, só visual)
-entrada/*.png|jpg      # imagens circulares/quadradas de teste
-```
-
-(pode ser via `git add`/`git push` no branch `claude/medal-mockup-generator-udslds`,
-ou upload pela interface se ela versionar os arquivos no repo). Assim que
-os arquivos existirem eu calibro os parâmetros exatos e gero o teste de
-composição pedido.
+Assets reais (`assets/base_medalha.png`, `assets/efeito_resina.png`,
+1254×1254px) já calibrados. A cavidade interna foi localizada por
+análise de componentes conexos (não a olho): a área branca isolada
+dentro do anel tem centro ≈ (645, 685) e raio ≈ 375–384px dependendo do
+limiar na borda anti-aliased — valores atuais em
+`MEDAL_SPECS["prata_16mm"]` (`config.py`): `center_x=645, center_y=685,
+inner_radius=380, overlap_px=3`. `teste_composicao.png` (na raiz do
+repo) é o resultado gerado com esses valores; comparar com
+`referencias/` para validar antes de gerar o lote completo.
 
 ## Instalação
 

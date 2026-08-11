@@ -122,11 +122,21 @@ class MedalSpec:
 # ---------------------------------------------------------------------------
 
 MEDAL_SPECS: dict[str, MedalSpec] = {
+    # Geometria medida diretamente em assets/base_medalha.png (1254x1254px):
+    # a cavidade interna (area branca isolada dentro do anel) foi detectada
+    # por analise de componentes conexos, centro ~(645, 685), raio ~375-384
+    # dependendo do limiar usado na borda anti-aliased. inner_radius=380 +
+    # overlap_px=3 cobre essa faixa e garante que a foto va ligeiramente
+    # por baixo da parede metalica (sem sobrar aro branco/transparente).
     "prata_16mm": MedalSpec(
         id="prata_16mm",
         nome="Medalha redonda prata 16mm",
         base_path=ASSETS_DIR / "base_medalha.png",
         resina_path=ASSETS_DIR / "efeito_resina.png",
+        center_x=645,
+        center_y=685,
+        inner_radius=380,
+        overlap_px=3,
     ),
 }
 
