@@ -172,22 +172,21 @@ def compose_medal(spec: MedalSpec, user_image_path: Path) -> Image.Image:
 
 def _apply_keepout(canvas: Image.Image, base: Image.Image,
                     boxes: tuple[tuple[float, float, float, float], ...]) -> Image.Image:
-    """Restaura os pixels da base dentro das caixas de keepout, mas SO onde
-    a base tem metal/sombra de fato (nao o retangulo inteiro) -- senao a
-    caixa corta uma borda reta e artificial sobre a foto/resina onde o
-    interior da cavidade (branco na base) legitimamente aparece."""
+    """Restaura os pixels da base (corte retangular simples, 'quadrado')
+    dentro das caixas de keepout, por cima de qualquer foto/resina que
+    tenha alcancado ali -- usado para proteger a argola. O corte reto pode
+    tirar uma lasca fina da foto onde o circulo passa perto do topo da
+    caixa; e intencional (o cliente prefere isso a arriscar cobrir a
+    argola), entao a caixa deve ser ajustada bem justa ao contorno da
+    argola para minimizar o quanto e cortado."""
     original = Image.new("RGBA", canvas.size, (255, 255, 255, 255))
     _paste_layer_fullsize(original, base)
 
-    box_mask = Image.new("L", canvas.size, 0)
-    draw = ImageDraw.Draw(box_mask)
+    mask = Image.new("L", canvas.size, 0)
+    draw = ImageDraw.Draw(mask)
     for x1, y1, x2, y2 in boxes:
         draw.rectangle((x1, y1, x2, y2), fill=255)
 
-    base_luminance = np.asarray(base.convert("L"))
-    metal_mask = Image.fromarray(np.where(base_luminance < 245, 255, 0).astype(np.uint8), "L")
-
-    mask = ImageChops.multiply(box_mask, metal_mask)
     return Image.composite(original, canvas, mask)
 
 
