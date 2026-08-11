@@ -28,6 +28,17 @@ REFERENCIAS_DIR = BASE_DIR / "referencias"
 
 IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff")
 
+# Geometria nativa de cada arquivo de efeito de resina: onde o domo de
+# vidro fica DENTRO dos proprios pixels do arquivo (centro_x, centro_y,
+# raio), medida uma unica vez direto na imagem (contorno escuro nitido da
+# borda do vidro) e independente de qualquer calibracao de base. Chaveado
+# pelo nome do arquivo para que MedalSpec resolva isso sozinho -- assim a
+# calibracao da base (center_x/center_y/inner_radius) nunca precisa, nem
+# deve, tocar nesses numeros.
+RESINA_DOME_GEOMETRY: dict[str, tuple[float, float, float]] = {
+    "efeito_resina.png": (629.5, 613.0, 473.0),
+}
+
 
 @dataclass(frozen=True)
 class ResolvedGeometry:
@@ -75,11 +86,25 @@ class MedalSpec:
     # lugar/escala da cavidade da base). Quando definido, a resina inteira
     # e escalada e deslocada para que esse circulo nativo caia exatamente
     # sobre (center_x, center_y, resina_radius) -- ou seja, foto e resina
-    # ficam com o MESMO diametro e no MESMO lugar. Quando None, a resina e
-    # aplicada como estava (overlay direto, assumindo pre-alinhamento).
+    # ficam com o MESMO diametro e no MESMO lugar. Quando None, tenta
+    # resolver automaticamente pelo nome do arquivo via RESINA_DOME_GEOMETRY
+    # (ver mais abaixo) antes de cair para overlay direto sem transformacao.
+    #
+    # NAO defina estes 3 campos aqui manualmente copiando os mesmos valores
+    # de center_x/center_y/inner_radius -- eles descrevem coisas diferentes
+    # (a posicao do vidro DENTRO do arquivo efeito_resina.png, nao a
+    # cavidade da base) e ficam errados por coincidencia de numero, nao por
+    # design. Cadastre o arquivo em RESINA_DOME_GEOMETRY em vez disso.
     resina_native_cx: Optional[float] = None
     resina_native_cy: Optional[float] = None
     resina_native_radius: Optional[float] = None
+
+    # Retangulos (x1, y1, x2, y2) em pixels da base onde a foto/resina NUNCA
+    # devem aparecer, mesmo que o raio calibrado alcance ali -- a area e
+    # restaurada para a base original (fundo branco + base_medalha.png) por
+    # cima de tudo. Serve para proteger partes como a argola, que ficam
+    # fisicamente acima/fora da cavidade e nunca devem ser cobertas.
+    keepout_boxes: tuple[tuple[float, float, float, float], ...] = ()
 
     # Estimativas usadas apenas enquanto os valores em pixel acima forem None.
     # Valores de partida para uma base "medalha redonda com argola no topo",
@@ -119,6 +144,13 @@ class MedalSpec:
             rr = final_r
         return ResolvedGeometry(cx, cy, final_r, rr)
 
+    def resolve_resina_native(self) -> Optional[tuple[float, float, float]]:
+        """(cx, cy, radius) do domo dentro do arquivo de resina, ou None se
+        nao ha geometria conhecida (cai para overlay direto sem transformar)."""
+        if self.resina_native_radius is not None:
+            return (self.resina_native_cx, self.resina_native_cy, self.resina_native_radius)
+        return RESINA_DOME_GEOMETRY.get(self.resina_path.name)
+
     @classmethod
     def from_box(cls, id: str, nome: str, base_path: Path, resina_path: Path,
                  image_box: tuple[float, float, float, float], **kwargs) -> "MedalSpec":
@@ -143,13 +175,18 @@ MEDAL_SPECS: dict[str, MedalSpec] = {
     # G > canal R) e ajustada por circulo de minimos quadrados: centro
     # (530, 604), raio da linha guia ~377 (residual std ~4px).
     #
-    # inner_radius=390 + overlap_px=8 (raio final 398) -- NAO reduzir: bem
-    # junto a argola existe uma folga real de ~3px entre o pino pequeno e o
-    # aro principal (visivel em r~381-384 nesse ponto especifico); um raio
-    # menor que ~385 nessa regiao expoe essa folga como um "buraco". 398 e
-    # o menor raio que cobre o pior caso medido (metal solido comeca entre
-    # 355 e 395px conforme o angulo) com folga em todo o contorno, exceto
-    # onde a argola passa por cima (conforme pedido do cliente).
+    # center_x/center_y/inner_radius/overlap_px: geometria da cavidade da
+    # base, calibrada pelo cliente com --calibrar. Esses 4 numeros sao os
+    # unicos que devem ser ajustados aqui ao recalibrar. A geometria da
+    # resina (resina_native_*) e resolvida automaticamente por
+    # RESINA_DOME_GEOMETRY acima, com base no nome do arquivo -- nao
+    # precisa (e nao deve) ser repetida aqui.
+    #
+    # keepout_boxes: protege a argola. Mesmo que o raio calibrado alcance
+    # ali (perto da argola ha uma folga real de poucos px entre o pino
+    # pequeno e o aro principal, ver notas de calibracao no historico),
+    # essa caixa restaura a base original por cima de qualquer foto/resina
+    # que tente pintar sobre a argola.
     "prata_16mm": MedalSpec(
         id="prata_16mm",
         nome="Medalha redonda prata 16mm",
@@ -159,16 +196,9 @@ MEDAL_SPECS: dict[str, MedalSpec] = {
         center_y=620,
         inner_radius=370,
         overlap_px=8,
-        
-        # Circulo nativo do domo de vidro dentro de assets/efeito_resina.png
-        # (arquivo separado, 1254x1254px, nao foi trocado): medido pelo
-        # contorno escuro nitido da borda do vidro, centro ~(629.5, 613),
-        # raio ~473. A escala/posicao sao recalculadas automaticamente em
-        # relacao ao novo raio/centro da base, independente do tamanho do
-        # canvas de cada arquivo.
-        resina_native_cx=540,
-        resina_native_cy=620,
-        resina_native_radius=370,
+        keepout_boxes=(
+            (430, 0, 830, 295),
+        ),
     ),
 }
 

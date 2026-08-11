@@ -112,19 +112,22 @@ def _place_resina(canvas: Image.Image, resina: Image.Image, spec: MedalSpec,
     foto do usuario (geo.center_x/y, geo.resina_radius) -- em vez de assumir
     que efeito_resina.png ja vem pre-registrado com a base.
 
-    Se a base nao tiver geometria nativa da resina configurada, cai de volta
-    para o overlay direto de canvas inteiro (comportamento pre-calibracao).
+    Se nao houver geometria nativa conhecida para o arquivo de resina (nem
+    manual em spec, nem em RESINA_DOME_GEOMETRY), cai de volta para o
+    overlay direto de canvas inteiro (comportamento pre-calibracao).
     """
-    if spec.resina_native_radius is None:
+    native = spec.resolve_resina_native()
+    if native is None:
         _paste_layer_fullsize(canvas, resina)
         return
+    native_cx, native_cy, native_radius = native
 
-    scale = geo.resina_radius / spec.resina_native_radius
+    scale = geo.resina_radius / native_radius
     new_size = (max(1, round(resina.width * scale)), max(1, round(resina.height * scale)))
     resized = _resize_rgba(resina, new_size)
 
-    scaled_native_cx = spec.resina_native_cx * scale
-    scaled_native_cy = spec.resina_native_cy * scale
+    scaled_native_cx = native_cx * scale
+    scaled_native_cy = native_cy * scale
     paste_x = round(geo.center_x - scaled_native_cx)
     paste_y = round(geo.center_y - scaled_native_cy)
 
@@ -158,7 +161,34 @@ def compose_medal(spec: MedalSpec, user_image_path: Path) -> Image.Image:
     # lugar da foto (ver _place_resina)
     _place_resina(canvas, resina, spec, geo)
 
+    # 5) keepout: restaura a base original (fundo branco + base_medalha.png,
+    # sem foto/resina) nas areas protegidas, como a argola -- mesmo que o
+    # raio calibrado tenha alcancado ali.
+    if spec.keepout_boxes:
+        canvas = _apply_keepout(canvas, base, spec.keepout_boxes)
+
     return canvas
+
+
+def _apply_keepout(canvas: Image.Image, base: Image.Image,
+                    boxes: tuple[tuple[float, float, float, float], ...]) -> Image.Image:
+    """Restaura os pixels da base dentro das caixas de keepout, mas SO onde
+    a base tem metal/sombra de fato (nao o retangulo inteiro) -- senao a
+    caixa corta uma borda reta e artificial sobre a foto/resina onde o
+    interior da cavidade (branco na base) legitimamente aparece."""
+    original = Image.new("RGBA", canvas.size, (255, 255, 255, 255))
+    _paste_layer_fullsize(original, base)
+
+    box_mask = Image.new("L", canvas.size, 0)
+    draw = ImageDraw.Draw(box_mask)
+    for x1, y1, x2, y2 in boxes:
+        draw.rectangle((x1, y1, x2, y2), fill=255)
+
+    base_luminance = np.asarray(base.convert("L"))
+    metal_mask = Image.fromarray(np.where(base_luminance < 245, 255, 0).astype(np.uint8), "L")
+
+    mask = ImageChops.multiply(box_mask, metal_mask)
+    return Image.composite(original, canvas, mask)
 
 
 def save_output(image: Image.Image, output_path: Path) -> None:
@@ -185,5 +215,8 @@ def build_calibration_preview(spec: MedalSpec) -> Image.Image:
     rr = geo.resina_radius
     if rr != r:
         draw.ellipse((cx - rr, cy - rr, cx + rr, cy + rr), outline=(0, 120, 255, 255), width=4)
+
+    for box in spec.keepout_boxes:
+        draw.rectangle(box, outline=(255, 140, 0, 255), width=3)
 
     return preview
