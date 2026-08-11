@@ -182,26 +182,19 @@ MEDAL_SPECS: dict[str, MedalSpec] = {
     # RESINA_DOME_GEOMETRY acima, com base no nome do arquivo -- nao
     # precisa (e nao deve) ser repetida aqui.
     #
-    # keepout_boxes: corte retangular simples que protege a argola,
-    # restaurando a base por cima de qualquer foto/resina que a alcance.
-    # Ajustada justa ao contorno real da argola (medido varrendo a largura
-    # do metal linha a linha a partir do topo: o formato do la co comeca a
-    # se misturar com a banda do anel principal por volta de y=260) para
-    # cortar o minimo possivel da foto -- o topo do circulo da foto chega
-    # a y=242 (center_y=620 - raio final 378), entao uma lasca fina entre
-    # y=242 e y=260 e cortada perto do centro; e intencional.
+    # Base trocada pelo cliente por uma versao mais simples (circulo
+    # perfeito, sem a complicacao da argola cruzando a parede) -- sem
+    # keepout_boxes, nao precisa proteger nada. Calibracao fornecida pelo
+    # cliente diretamente.
     "prata_16mm": MedalSpec(
         id="prata_16mm",
         nome="Medalha redonda prata 16mm",
         base_path=ASSETS_DIR / "base_medalha.png",
         resina_path=ASSETS_DIR / "efeito_resina.png",
-        center_x=540,
-        center_y=620,
-        inner_radius=370,
+        center_x=630,
+        center_y=655,
+        inner_radius=355,
         overlap_px=8,
-        keepout_boxes=(
-            (460, 0, 810, 260),
-        ),
     ),
 }
 
