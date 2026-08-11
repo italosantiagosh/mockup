@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gerador de Medalhas</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f1ec;
+      --card: #ffffff;
+      --ink: #2b2620;
+      --muted: #6b6255;
+      --accent: #8a6d3b;
+      --accent-dark: #6e5730;
+      --border: #e1dacb;
+      --error-bg: #fdecea;
+      --error-ink: #7a2118;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      display: flex;
+      justify-content: center;
+      padding: 24px 16px 48px;
+    }
+    main {
+      width: 100%;
+      max-width: 480px;
+    }
+    h1 {
+      font-size: 1.4rem;
+      margin: 0 0 4px;
+    }
+    p.subtitle {
+      color: var(--muted);
+      margin: 0 0 20px;
+      font-size: 0.95rem;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    label.dropzone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 32px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+    }
+    label.dropzone:active {
+      border-color: var(--accent);
+    }
+    label.dropzone .icone { font-size: 2rem; }
+    label.dropzone .principal { font-weight: 600; }
+    label.dropzone .secundario { font-size: 0.85rem; color: var(--muted); }
+    input[type="file"] { display: none; }
+    #nomes-arquivos {
+      margin-top: 10px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      word-break: break-word;
+    }
+    button {
+      width: 100%;
+      margin-top: 16px;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: var(--accent);
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:active { background: var(--accent-dark); }
+    button:disabled { background: var(--border); color: var(--muted); }
+    .erro {
+      background: var(--error-bg);
+      color: var(--error-ink);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+    }
+    .preview img {
+      width: 100%;
+      border-radius: 12px;
+      display: block;
+      margin-bottom: 14px;
+    }
+    a.botao-download {
+      display: block;
+      text-align: center;
+      padding: 14px;
+      border-radius: 10px;
+      background: var(--accent);
+      color: white;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    a.botao-download:active { background: var(--accent-dark); }
+    .link-nova {
+      display: block;
+      text-align: center;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Gerador de Medalhas</h1>
+    <p class="subtitle">Envie uma foto para ver a prevista, ou varias de uma vez para baixar todas em um .zip.</p>
+
+    {% if erro %}
+      <div class="erro">{{ erro }}</div>
+    {% endif %}
+
+    {% if preview_src %}
+      <div class="card preview">
+        <img src="{{ preview_src }}" alt="Previa da medalha">
+        <a class="botao-download" href="{{ preview_src }}" download="{{ preview_nome }}">Salvar imagem</a>
+      </div>
+      <a class="link-nova" href="/">&larr; Gerar outra</a>
+    {% else %}
+      <form class="card" action="/processar" method="post" enctype="multipart/form-data" id="form-upload">
+        <label class="dropzone" for="input-imagens">
+          <span class="icone">📷</span>
+          <span class="principal">Toque para escolher imagem(ns)</span>
+          <span class="secundario">Uma imagem mostra a previa antes de salvar.<br>Varias imagens baixam num .zip.</span>
+        </label>
+        <input type="file" id="input-imagens" name="imagens" accept="image/*" multiple>
+        <div id="nomes-arquivos"></div>
+        <button type="submit" id="botao-enviar" disabled>Selecione uma imagem primeiro</button>
+      </form>
+    {% endif %}
+  </main>
+
+  <script>
+    const input = document.getElementById('input-imagens');
+    const nomesDiv = document.getElementById('nomes-arquivos');
+    const botao = document.getElementById('botao-enviar');
+    if (input) {
+      input.addEventListener('change', () => {
+        const arquivos = Array.from(input.files);
+        if (arquivos.length === 0) {
+          nomesDiv.textContent = '';
+          botao.disabled = true;
+          botao.textContent = 'Selecione uma imagem primeiro';
+          return;
+        }
+        botao.disabled = false;
+        if (arquivos.length === 1) {
+          nomesDiv.textContent = arquivos[0].name;
+          botao.textContent = 'Gerar previa';
+        } else {
+          nomesDiv.textContent = arquivos.length + ' arquivos selecionados';
+          botao.textContent = 'Gerar e baixar .zip (' + arquivos.length + ')';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

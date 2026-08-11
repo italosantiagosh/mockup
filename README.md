@@ -41,6 +41,38 @@ Abre uma janela para escolher uma ou mais imagens:
 - **Várias imagens**: pergunta uma pasta de destino e salva todas lá
   automaticamente (`<nome>_medalha.png` para cada uma).
 
+## Versão web (usar do celular)
+
+```bash
+.venv/bin/python app.py
+# abre em http://localhost:8000
+```
+
+Mesma ideia da GUI, mas numa página web (funciona no Safari do iPhone,
+Chrome do Android, etc. — nada para instalar). Uma imagem mostra a
+prévia com um botão "Salvar imagem"; várias imagens baixam um `.zip`
+com todas de uma vez (o navegador não deixa escolher uma pasta e salvar
+vários arquivos soltos, então o `.zip` é o equivalente prático disso na
+web).
+
+### Publicar no Render (acesso de qualquer lugar, não só na mesma rede)
+
+1. Suba este repositório no GitHub (se ainda não estiver lá).
+2. Crie uma conta em [render.com](https://render.com) (tem plano
+   gratuito).
+3. "New" → "Blueprint" → conecte o repositório. O `render.yaml` já
+   configura tudo (comando de build e de start) — é só confirmar.
+   Se preferir configurar manualmente em vez do Blueprint: "New" → "Web
+   Service", conecte o repo, e preencha:
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `gunicorn app:app --timeout 90`
+4. Espere o deploy terminar; o Render dá uma URL pública
+   (`https://algo.onrender.com`) — abra ela no Safari do iPhone e
+   adicione à tela de início se quiser que pareça um app.
+
+No plano gratuito o serviço "dorme" depois de um tempo sem uso e demora
+uns 30-50s para acordar no primeiro acesso — normal, não é erro.
+
 ## Uso individual (linha de comando)
 
 ```bash
@@ -94,7 +126,11 @@ referencias/    medalhas reais prontas, só para comparação visual
 config.py       geometria e catálogo de bases (MedalSpec)
 compositor.py   lógica pura de composição (Pillow)
 main.py         CLI (arquivo único, --pasta, --calibrar)
-gui.py          interface gráfica (tkinter)
+gui.py          interface gráfica de desktop (tkinter)
+app.py          versão web (Flask), para usar do celular
+templates/      HTML da versão web
+Procfile        comando de start para hospedagem (Render/Railway/etc.)
+render.yaml     configuração de deploy no Render
 tests/          teste de fumaça do pipeline com fixtures sintéticas
 ```
 
@@ -119,8 +155,8 @@ e usar com `python main.py imagem.jpg --medalha dourada_12mm`.
 O mesmo padrão comporta, no futuro: processamento por CSV (basta iterar
 linhas chamando `compose_medal`) e outros formatos de base (oval,
 quadrada — troque a máscara elíptica/retangular em `compositor.py`).
-`compositor.py` não depende do CLI nem da GUI — ambos (`main.py`,
-`gui.py`) só chamam `compose_medal`.
+`compositor.py` não depende de nenhuma das interfaces — `main.py`
+(CLI), `gui.py` (desktop) e `app.py` (web) só chamam `compose_medal`.
 
 ## Testes
 
