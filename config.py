@@ -138,34 +138,42 @@ class MedalSpec:
 
 MEDAL_SPECS: dict[str, MedalSpec] = {
     # Geometria de assets/base_medalha.png (arquivo trocado pelo cliente em
-    # 2026-08-11, agora 1080x1080px -- ATENCAO: outra resolucao do que a
-    # versao anterior, recalibrado do zero). O proprio arquivo novo traz uma
-    # linha guia sutil ciano tracando a parede interna; ela foi extraida por
-    # deteccao de cor (canal G > canal R) e ajustada por circulo de minimos
-    # quadrados: centro (530, 604), raio da linha guia ~377 (residual
-    # std ~4px). A partir desse centro, medido onde o metal SOLIDO comeca
-    # (nao so onde o branco termina): varia ~355-395px conforme o angulo
-    # (media ~376). inner_radius=390 + overlap_px=8 (raio final 398) cobre
-    # o pior caso (395) com folga, encostando no metal em todas as laterais
-    # exceto onde a argola passa por cima (conforme pedido do cliente).
+    # 2026-08-11, 1080x1080px). O proprio arquivo traz uma linha guia sutil
+    # ciano tracando a parede interna; extraida por deteccao de cor (canal
+    # G > canal R) e ajustada por circulo de minimos quadrados: centro
+    # (530, 604), raio da linha guia ~377 (residual std ~4px).
+    #
+    # inner_radius=390 + overlap_px=8 (raio final 398) -- NAO reduzir: bem
+    # junto a argola existe uma folga real de ~3px entre o pino pequeno e o
+    # aro principal (visivel em r~381-384 nesse ponto especifico); um raio
+    # menor que ~385 nessa regiao expoe essa folga como um "buraco". 398 e
+    # o menor raio que cobre o pior caso medido (metal solido comeca entre
+    # 355 e 395px conforme o angulo) com folga em todo o contorno, exceto
+    # onde a argola passa por cima (conforme pedido do cliente).
     "prata_16mm": MedalSpec(
         id="prata_16mm",
         nome="Medalha redonda prata 16mm",
         base_path=ASSETS_DIR / "base_medalha.png",
         resina_path=ASSETS_DIR / "efeito_resina.png",
-        center_x=540,
-        center_y=625,
-        inner_radius=360,
+        center_x=530,
+        center_y=604,
+        inner_radius=390,
         overlap_px=8,
-        # Circulo nativo do domo de vidro dentro de assets/efeito_resina.png
-        # (arquivo separado, 1254x1254px, nao foi trocado): medido pelo
-        # contorno escuro nitido da borda do vidro, centro ~(629.5, 613),
-        # raio ~473. A escala/posicao sao recalculadas automaticamente em
-        # relacao ao novo raio/centro da base, independente do tamanho do
-        # canvas de cada arquivo.
-        resina_native_cx=540,
-        resina_native_cy=625,
-        resina_native_radius=360,
+        # Circulo nativo do domo de vidro DENTRO do proprio arquivo
+        # efeito_resina.png (1254x1254px, arquivo separado que nao foi
+        # trocado) -- isto NAO e o mesmo circulo que center_x/center_y/
+        # inner_radius acima (que descrevem a cavidade da BASE). E a
+        # posicao/raio do domo medido diretamente nos pixels da resina (via
+        # contorno escuro nitido da borda do vidro): centro ~(629.5, 613),
+        # raio ~473. A partir disso o compositor calcula sozinho a
+        # escala/deslocamento para o domo cair exatamente sobre
+        # center_x/center_y/resina_radius da base -- por isso os dois
+        # conjuntos de numeros sao diferentes por definicao. Copiar os
+        # valores da base aqui (como foi feito antes) faz a resina ser
+        # colada sem nenhuma transformacao, na posicao/escala erradas.
+        resina_native_cx=629.5,
+        resina_native_cy=613.0,
+        resina_native_radius=473.0,
     ),
 }
 
