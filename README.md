@@ -12,15 +12,10 @@ recorte "cover" + máscara circular + alpha compositing com Pillow, na ordem:
 
 ## Status
 
-Assets reais (`assets/base_medalha.png`, `assets/efeito_resina.png`,
-1254×1254px) já calibrados. A cavidade interna foi localizada por
-análise de componentes conexos (não a olho): a área branca isolada
-dentro do anel tem centro ≈ (645, 685) e raio ≈ 375–384px dependendo do
-limiar na borda anti-aliased — valores atuais em
-`MEDAL_SPECS["prata_16mm"]` (`config.py`): `center_x=645, center_y=685,
-inner_radius=380, overlap_px=3`. `teste_composicao.png` (na raiz do
-repo) é o resultado gerado com esses valores; comparar com
-`referencias/` para validar antes de gerar o lote completo.
+Assets reais calibrados em `MEDAL_SPECS["prata_16mm"]` (`config.py`).
+`teste_composicao.png` (na raiz do repo) é o resultado gerado com a
+calibração atual; comparar com `referencias/` para validar antes de
+gerar o lote completo.
 
 ## Instalação
 
@@ -29,7 +24,24 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-## Uso individual
+No Linux, a interface gráfica (`gui.py`) também precisa do pacote de
+sistema do Tk, que não vem pelo pip: `sudo apt install python3-tk` (no
+Windows/Mac do instalador oficial do python.org isso já vem incluso).
+
+## Interface gráfica
+
+```bash
+python gui.py
+```
+
+Abre uma janela para escolher uma ou mais imagens:
+
+- **Uma imagem**: gera o mockup, mostra a prévia na janela e só depois
+  oferece "Salvar imagem..." para escolher onde baixar.
+- **Várias imagens**: pergunta uma pasta de destino e salva todas lá
+  automaticamente (`<nome>_medalha.png` para cada uma).
+
+## Uso individual (linha de comando)
 
 ```bash
 python main.py imagem.jpg
@@ -82,6 +94,7 @@ referencias/    medalhas reais prontas, só para comparação visual
 config.py       geometria e catálogo de bases (MedalSpec)
 compositor.py   lógica pura de composição (Pillow)
 main.py         CLI (arquivo único, --pasta, --calibrar)
+gui.py          interface gráfica (tkinter)
 tests/          teste de fumaça do pipeline com fixtures sintéticas
 ```
 
@@ -104,10 +117,10 @@ MEDAL_SPECS["dourada_12mm"] = MedalSpec(
 e usar com `python main.py imagem.jpg --medalha dourada_12mm`.
 
 O mesmo padrão comporta, no futuro: processamento por CSV (basta iterar
-linhas chamando `compose_medal`), outros formatos de base (oval,
-quadrada — troque a máscara elíptica/retangular em `compositor.py`), e
-uma interface gráfica (o `compositor.py` não depende do CLI, pode ser
-importado direto).
+linhas chamando `compose_medal`) e outros formatos de base (oval,
+quadrada — troque a máscara elíptica/retangular em `compositor.py`).
+`compositor.py` não depende do CLI nem da GUI — ambos (`main.py`,
+`gui.py`) só chamam `compose_medal`.
 
 ## Testes
 
