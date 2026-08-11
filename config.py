@@ -156,18 +156,25 @@ MEDAL_SPECS: dict[str, MedalSpec] = {
         base_path=ASSETS_DIR / "base_medalha.png",
         resina_path=ASSETS_DIR / "efeito_resina.png",
         center_x=540,
+<<<<<<< Updated upstream
         center_y=625,
         inner_radius=360,
+=======
+        center_y=620,
+        inner_radius=370,
+>>>>>>> Stashed changes
         overlap_px=8,
+        
+
         # Circulo nativo do domo de vidro dentro de assets/efeito_resina.png
         # (arquivo separado, 1254x1254px, nao foi trocado): medido pelo
         # contorno escuro nitido da borda do vidro, centro ~(629.5, 613),
         # raio ~473. A escala/posicao sao recalculadas automaticamente em
         # relacao ao novo raio/centro da base, independente do tamanho do
         # canvas de cada arquivo.
-        resina_native_cx=629.5,
-        resina_native_cy=613.0,
-        resina_native_radius=473.0,
+        resina_native_cx=540,
+        resina_native_cy=620,
+        resina_native_radius=370,
     ),
 }
 
