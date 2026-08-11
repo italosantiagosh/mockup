@@ -137,25 +137,24 @@ class MedalSpec:
 # ---------------------------------------------------------------------------
 
 MEDAL_SPECS: dict[str, MedalSpec] = {
-    # Geometria medida diretamente em assets/base_medalha.png (1254x1254px)
-    # via varredura radial e confirmada visualmente pelo cliente: o overlay
-    # de calibracao com center_x=645, center_y=685, inner_radius=380,
-    # overlap_px=3 (raio final 383) foi validado como o encaixe correto
-    # (encosta na parede interna em todo o contorno; o pequeno trecho perto
-    # da argola nao precisa de cobertura porque a propria argola fica por
-    # cima na composicao final). Nao aumentar o raio alem disso: em zoom
-    # extremo (4-5x) aparece um gradiente claro natural do proprio metal
-    # perto da parede, mas em escala normal de visualizacao nao e visivel
-    # e cobrir mais far ia a foto invadir a textura do anel.
+    # Geometria de assets/base_medalha.png (1254x1254px), medida com um
+    # ajuste de circulo por minimos quadrados (nao bbox/olho): centro
+    # (636, 675), raio onde o metal SOLIDO/textured comeca (nao so onde o
+    # branco puro termina) varia ~385-403px conforme o angulo. O cliente
+    # confirmou que esse gradiente claro entre o branco e o metal (uma
+    # sombra/realce que existe no arquivo da base) deve ficar todo coberto
+    # pela foto -- ela deve encostar no metal em todas as laterais, exceto
+    # onde a argola passa por cima. inner_radius=400 + overlap_px=5 (raio
+    # final 405) cobre o pior caso (403) com folga em todo o contorno.
     "prata_16mm": MedalSpec(
         id="prata_16mm",
         nome="Medalha redonda prata 16mm",
         base_path=ASSETS_DIR / "base_medalha.png",
         resina_path=ASSETS_DIR / "efeito_resina.png",
-        center_x=645,
-        center_y=685,
-        inner_radius=380,
-        overlap_px=3,
+        center_x=636,
+        center_y=675,
+        inner_radius=400,
+        overlap_px=5,
         # Circulo nativo do domo de vidro dentro de assets/efeito_resina.png,
         # medido pelo contorno escuro nitido da borda do vidro (deteccao de
         # pixels com alpha alto e luminancia baixa): centro ~(629.5, 613),
