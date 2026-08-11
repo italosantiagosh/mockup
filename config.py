@@ -165,9 +165,9 @@ MEDAL_SPECS: dict[str, MedalSpec] = {
         # raio ~473. A escala/posicao sao recalculadas automaticamente em
         # relacao ao novo raio/centro da base, independente do tamanho do
         # canvas de cada arquivo.
-        resina_native_cx=540,
-        resina_native_cy=625,
-        resina_native_radius=360,
+        resina_native_cx=629.5,
+        resina_native_cy=613.0,
+        resina_native_radius=473.0,
     ),
 }
 
