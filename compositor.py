@@ -48,25 +48,39 @@ def _circular_mask(diameter: int, supersample: int = SUPERSAMPLE) -> Image.Image
     return mask_big.resize((diameter, diameter), Image.LANCZOS)
 
 
-def fit_cover_circle(user_image: Image.Image, diameter: int) -> Image.Image:
-    """
-    Equivalente a CSS `object-fit: cover` dentro de um quadrado de lado
-    `diameter`, seguido de mascara circular. A imagem nunca e deformada:
-    e escalada mantendo proporcao ate cobrir totalmente o quadrado, o
-    excesso (o que sobra fora do quadrado) e cortado, centralizado.
-    """
+def auto_cover_box(image_size: tuple[int, int]) -> tuple[float, float, float, float]:
+    """Retangulo (quadrado, coordenadas da imagem ORIGINAL) que
+    `object-fit: cover` recortaria automaticamente: o quadrado centralizado
+    do tamanho do lado menor da imagem. Nao depende do diametro de saida --
+    isso so importa no resize que acontece depois."""
+    w, h = image_size
+    lado = min(w, h)
+    x1 = (w - lado) / 2
+    y1 = (h - lado) / 2
+    return (x1, y1, x1 + lado, y1 + lado)
+
+
+def crop_to_box(image: Image.Image, box: tuple[float, float, float, float]) -> Image.Image:
+    """Recorta EXATAMENTE o retangulo informado (assumido quadrado, em
+    coordenadas de pixel da imagem original), sem redimensionar ou
+    deformar -- usado quando o usuario escolhe manualmente a posicao/zoom
+    do recorte (ver app.py). Arredonda e limita aos limites da imagem."""
+    w, h = image.size
+    x1, y1, x2, y2 = box
+    x1 = max(0, min(w, round(x1)))
+    y1 = max(0, min(h, round(y1)))
+    x2 = max(x1 + 1, min(w, round(x2)))
+    y2 = max(y1 + 1, min(h, round(y2)))
+    return image.crop((x1, y1, x2, y2))
+
+
+def _resize_and_mask_circle(square_image: Image.Image, diameter: int) -> Image.Image:
+    """Redimensiona um recorte QUADRADO ja pronto para `diameter` e aplica
+    a mascara circular. Passo final compartilhado por fit_cover_circle
+    (recorte automatico) e fit_manual_circle (recorte escolhido pelo
+    usuario)."""
     diameter = max(1, int(round(diameter)))
-    img = user_image.convert("RGBA")
-    w, h = img.size
-
-    scale = diameter / min(w, h)
-    new_w = max(diameter, round(w * scale))
-    new_h = max(diameter, round(h * scale))
-    img = img.resize((new_w, new_h), Image.LANCZOS)
-
-    left = (new_w - diameter) // 2
-    top = (new_h - diameter) // 2
-    img = img.crop((left, top, left + diameter, top + diameter))
+    img = square_image.convert("RGBA").resize((diameter, diameter), Image.LANCZOS)
 
     mask = _circular_mask(diameter)
     # Multiplica pelo alpha original (caso a foto do usuario ja tenha
@@ -76,6 +90,28 @@ def fit_cover_circle(user_image: Image.Image, diameter: int) -> Image.Image:
     a = ImageChops.multiply(a, mask)
     img.putalpha(a)
     return img
+
+
+def fit_cover_circle(user_image: Image.Image, diameter: int) -> Image.Image:
+    """
+    Equivalente a CSS `object-fit: cover` dentro de um quadrado de lado
+    `diameter`, seguido de mascara circular. A imagem nunca e deformada:
+    e escalada mantendo proporcao ate cobrir totalmente o quadrado, o
+    excesso (o que sobra fora do quadrado) e cortado, centralizado.
+    """
+    img = user_image.convert("RGBA")
+    square = crop_to_box(img, auto_cover_box(img.size))
+    return _resize_and_mask_circle(square, diameter)
+
+
+def fit_manual_circle(user_image: Image.Image, diameter: int,
+                       crop_box: tuple[float, float, float, float]) -> Image.Image:
+    """Como fit_cover_circle, mas usando um recorte quadrado escolhido
+    manualmente (coordenadas de pixel da imagem ORIGINAL) em vez do
+    recorte automatico centralizado -- ver app.py (editor de recorte)."""
+    img = user_image.convert("RGBA")
+    square = crop_to_box(img, crop_box)
+    return _resize_and_mask_circle(square, diameter)
 
 
 def _paste_layer_fullsize(canvas: Image.Image, layer: Image.Image) -> None:
@@ -136,7 +172,13 @@ def _place_resina(canvas: Image.Image, resina: Image.Image, spec: MedalSpec,
     canvas.alpha_composite(layer)
 
 
-def compose_medal(spec: MedalSpec, user_image_path: Path) -> Image.Image:
+def compose_medal(spec: MedalSpec, user_image_path: Path,
+                   crop_box: tuple[float, float, float, float] | None = None) -> Image.Image:
+    """
+    `crop_box`, se informado, e um retangulo quadrado (x1, y1, x2, y2) em
+    pixels da imagem ORIGINAL do usuario, escolhido manualmente (editor de
+    recorte em app.py) -- substitui o recorte automatico centralizado.
+    """
     base = load_rgba(spec.base_path)
     resina = load_rgba(spec.resina_path)
     geo = spec.resolve(base.size)
@@ -147,10 +189,14 @@ def compose_medal(spec: MedalSpec, user_image_path: Path) -> Image.Image:
     # 2) base da medalha
     _paste_layer_fullsize(canvas, base)
 
-    # 3) imagem do usuario: cover + mascara circular, centralizada em (cx, cy)
+    # 3) imagem do usuario: cover (ou recorte manual) + mascara circular,
+    # centralizada em (cx, cy)
     user_img = load_rgba(user_image_path)
     diameter = int(round(geo.inner_radius * 2))
-    circle = fit_cover_circle(user_img, diameter)
+    if crop_box is not None:
+        circle = fit_manual_circle(user_img, diameter, crop_box)
+    else:
+        circle = fit_cover_circle(user_img, diameter)
     paste_x = int(round(geo.center_x - diameter / 2))
     paste_y = int(round(geo.center_y - diameter / 2))
     layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))

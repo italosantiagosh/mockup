@@ -27,19 +27,9 @@
       justify-content: center;
       padding: 24px 16px 48px;
     }
-    main {
-      width: 100%;
-      max-width: 480px;
-    }
-    h1 {
-      font-size: 1.4rem;
-      margin: 0 0 4px;
-    }
-    p.subtitle {
-      color: var(--muted);
-      margin: 0 0 20px;
-      font-size: 0.95rem;
-    }
+    main { width: 100%; max-width: 480px; }
+    h1 { font-size: 1.4rem; margin: 0 0 4px; }
+    p.subtitle { color: var(--muted); margin: 0 0 20px; font-size: 0.95rem; }
     .card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -58,24 +48,16 @@
       padding: 32px 16px;
       text-align: center;
       cursor: pointer;
-      transition: border-color 0.15s ease;
-    }
-    label.dropzone:active {
-      border-color: var(--accent);
     }
     label.dropzone .icone { font-size: 2rem; }
     label.dropzone .principal { font-weight: 600; }
     label.dropzone .secundario { font-size: 0.85rem; color: var(--muted); }
     input[type="file"] { display: none; }
-    #nomes-arquivos {
-      margin-top: 10px;
-      font-size: 0.85rem;
-      color: var(--muted);
-      word-break: break-word;
-    }
-    button {
+    #nomes-arquivos { margin-top: 10px; font-size: 0.85rem; color: var(--muted); word-break: break-word; }
+    button, a.botao {
+      display: block;
       width: 100%;
-      margin-top: 16px;
+      margin-top: 12px;
       padding: 14px;
       border: none;
       border-radius: 10px;
@@ -84,9 +66,21 @@
       font-size: 1rem;
       font-weight: 600;
       cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      box-sizing: border-box;
     }
-    button:active { background: var(--accent-dark); }
+    button:first-child, a.botao:first-child { margin-top: 0; }
+    button:active, a.botao:active { background: var(--accent-dark); }
     button:disabled { background: var(--border); color: var(--muted); }
+    button.secundario, a.botao.secundario {
+      background: var(--card);
+      color: var(--ink);
+      border: 1px solid var(--border);
+    }
+    button.secundario:active, a.botao.secundario:active { background: var(--bg); }
+    .duas-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+    .duas-colunas button, .duas-colunas a.botao { margin-top: 0; }
     .erro {
       background: var(--error-bg);
       color: var(--error-ink);
@@ -95,84 +89,410 @@
       font-size: 0.9rem;
       margin-bottom: 16px;
     }
-    .preview img {
+    .preview img { width: 100%; border-radius: 12px; display: block; margin-bottom: 14px; }
+    .link-nova { display: block; text-align: center; margin-top: 14px; color: var(--muted); font-size: 0.9rem; }
+    .oculto { display: none !important; }
+
+    /* editor de recorte */
+    #cropper-progresso { font-size: 0.85rem; color: var(--muted); margin-bottom: 10px; text-align: center; }
+    #cropper-canvas {
+      display: block;
       width: 100%;
+      max-width: 340px;
+      margin: 0 auto;
       border-radius: 12px;
-      display: block;
-      margin-bottom: 14px;
+      touch-action: none;
+      background: #111;
     }
-    a.botao-download {
-      display: block;
-      text-align: center;
-      padding: 14px;
-      border-radius: 10px;
-      background: var(--accent);
-      color: white;
-      text-decoration: none;
-      font-weight: 600;
-    }
-    a.botao-download:active { background: var(--accent-dark); }
-    .link-nova {
-      display: block;
-      text-align: center;
-      margin-top: 14px;
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
+    .cropper-dica { text-align: center; font-size: 0.82rem; color: var(--muted); margin: 10px 0 0; }
+    .zoom-linha { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+    .zoom-linha span { font-size: 1.1rem; }
+    .zoom-linha input[type="range"] { flex: 1; }
   </style>
 </head>
 <body>
   <main>
     <h1>Gerador de Medalhas</h1>
-    <p class="subtitle">Envie uma foto para ver a prevista, ou varias de uma vez para baixar todas em um .zip.</p>
+    <p class="subtitle">Envie uma foto pra ver a prévia e ajustar o recorte, ou várias de uma vez.</p>
 
-    {% if erro %}
-      <div class="erro">{{ erro }}</div>
-    {% endif %}
+    <div id="banner-erro" class="erro oculto"></div>
 
-    {% if preview_src %}
-      <div class="card preview">
-        <img src="{{ preview_src }}" alt="Previa da medalha">
-        <a class="botao-download" href="{{ preview_src }}" download="{{ preview_nome }}">Salvar imagem</a>
+    <!-- 1) escolha de arquivos -->
+    <section id="view-upload" class="card">
+      <label class="dropzone" for="input-imagens">
+        <span class="icone">📷</span>
+        <span class="principal">Toque para escolher imagem(ns)</span>
+        <span class="secundario">Uma imagem: você ajusta o recorte e vê a prévia.<br>Várias: você escolhe se quer ajustar cada uma.</span>
+      </label>
+      <input type="file" id="input-imagens" name="imagens" accept="image/*" multiple>
+      <div id="nomes-arquivos" class="oculto"></div>
+    </section>
+
+    <!-- 2) pergunta so aparece com varios arquivos -->
+    <section id="view-lote-pergunta" class="card oculto">
+      <p style="margin-top:0">Quer revisar o recorte de cada imagem antes de gerar, ou já gerar tudo direto?</p>
+      <button id="botao-lote-revisar">Revisar uma por uma</button>
+      <button id="botao-lote-direto" class="secundario">Gerar direto (recorte automático)</button>
+    </section>
+
+    <!-- 3) editor de recorte (usado no fluxo de 1 imagem e no de lote revisado) -->
+    <section id="view-cropper" class="card oculto">
+      <div id="cropper-progresso" class="oculto"></div>
+      <canvas id="cropper-canvas" width="320" height="320"></canvas>
+      <p class="cropper-dica">Arraste para posicionar. Use o controle abaixo para dar zoom.</p>
+      <div class="zoom-linha">
+        <span>&#9673;</span>
+        <input type="range" id="cropper-zoom" min="0" max="1000" value="0">
+        <span style="font-size:1.5rem">&#9673;</span>
       </div>
-      <a class="link-nova" href="/">&larr; Gerar outra</a>
-    {% else %}
-      <form class="card" action="/processar" method="post" enctype="multipart/form-data" id="form-upload">
-        <label class="dropzone" for="input-imagens">
-          <span class="icone">📷</span>
-          <span class="principal">Toque para escolher imagem(ns)</span>
-          <span class="secundario">Uma imagem mostra a previa antes de salvar.<br>Varias imagens baixam num .zip.</span>
-        </label>
-        <input type="file" id="input-imagens" name="imagens" accept="image/*" multiple>
-        <div id="nomes-arquivos"></div>
-        <button type="submit" id="botao-enviar" disabled>Selecione uma imagem primeiro</button>
-      </form>
-    {% endif %}
+      <button id="botao-cropper-confirmar">Gerar prévia</button>
+    </section>
+
+    <!-- 4a) resultado de 1 imagem -->
+    <section id="view-preview" class="card preview oculto">
+      <img id="preview-img" alt="Prévia da medalha">
+      <a id="link-baixar-previa" class="botao" download>Baixar prévia</a>
+      <a id="link-baixar-recorte" class="botao secundario" download>Baixar imagem recortada (1:1)</a>
+      <div class="duas-colunas">
+        <button id="botao-reposicionar" class="secundario">Reposicionar</button>
+        <button id="botao-gerar-outra" class="secundario">Gerar outra</button>
+      </div>
+    </section>
+
+    <!-- 4b) resultado do lote revisado -->
+    <section id="view-lote-resultado" class="card oculto">
+      <p id="lote-resumo" style="margin-top:0"></p>
+      <a id="link-baixar-previas-zip" class="botao" download="medalhas.zip">Baixar prévias (.zip)</a>
+      <a id="link-baixar-recortes-zip" class="botao secundario" download="recortes.zip">Baixar recortadas 1:1 (.zip)</a>
+    </section>
+
+    <a href="/" class="link-nova oculto" id="link-recomecar">&larr; Começar de novo</a>
   </main>
 
   <script>
-    const input = document.getElementById('input-imagens');
-    const nomesDiv = document.getElementById('nomes-arquivos');
-    const botao = document.getElementById('botao-enviar');
-    if (input) {
-      input.addEventListener('change', () => {
-        const arquivos = Array.from(input.files);
-        if (arquivos.length === 0) {
-          nomesDiv.textContent = '';
-          botao.disabled = true;
-          botao.textContent = 'Selecione uma imagem primeiro';
-          return;
-        }
-        botao.disabled = false;
-        if (arquivos.length === 1) {
-          nomesDiv.textContent = arquivos[0].name;
-          botao.textContent = 'Gerar previa';
-        } else {
-          nomesDiv.textContent = arquivos.length + ' arquivos selecionados';
-          botao.textContent = 'Gerar e baixar .zip (' + arquivos.length + ')';
-        }
+  (function () {
+    "use strict";
+
+    const CROPPER_SIZE = 320;
+    const RAIO = CROPPER_SIZE / 2;
+    const ZOOM_MAX_MULT = 4; // quanto da imagem original o zoom pode ampliar
+
+    const views = {
+      upload: document.getElementById("view-upload"),
+      loteP: document.getElementById("view-lote-pergunta"),
+      cropper: document.getElementById("view-cropper"),
+      preview: document.getElementById("view-preview"),
+      loteResultado: document.getElementById("view-lote-resultado"),
+    };
+    const bannerErro = document.getElementById("banner-erro");
+    const linkRecomecar = document.getElementById("link-recomecar");
+    const inputImagens = document.getElementById("input-imagens");
+    const nomesArquivosDiv = document.getElementById("nomes-arquivos");
+
+    function mostrarView(nome) {
+      Object.entries(views).forEach(([k, el]) => el.classList.toggle("oculto", k !== nome));
+      linkRecomecar.classList.toggle("oculto", nome === "upload");
+      window.scrollTo(0, 0);
+    }
+
+    function mostrarErro(msg) {
+      bannerErro.textContent = msg;
+      bannerErro.classList.remove("oculto");
+    }
+
+    function limparErro() {
+      bannerErro.classList.add("oculto");
+      bannerErro.textContent = "";
+    }
+
+    // ---------------------------------------------------------------
+    // Editor de recorte (canvas): pan com arraste, zoom com o slider.
+    // O usuario nunca consegue posicionar/dar zoom-out alem dos limites
+    // da imagem original -- nao existe preenchimento de branco/preto,
+    // o recorte fica sempre 100% dentro da foto.
+    // ---------------------------------------------------------------
+    const canvas = document.getElementById("cropper-canvas");
+    const ctx = canvas.getContext("2d");
+    const zoomSlider = document.getElementById("cropper-zoom");
+    const cropperProgresso = document.getElementById("cropper-progresso");
+    const botaoConfirmar = document.getElementById("botao-cropper-confirmar");
+
+    let cropperImg = null;      // HTMLImageElement atual
+    let minScale = 1, maxScale = 1, scale = 1;
+    let offsetX = 0, offsetY = 0; // ponto da imagem ORIGINAL que fica no centro do circulo
+
+    function clampOffset() {
+      const rImg = RAIO / scale;
+      const maxX = Math.max(rImg, cropperImg.naturalWidth - rImg);
+      const maxY = Math.max(rImg, cropperImg.naturalHeight - rImg);
+      offsetX = Math.min(Math.max(offsetX, rImg), maxX);
+      offsetY = Math.min(Math.max(offsetY, rImg), maxY);
+    }
+
+    function desenharCropper() {
+      ctx.clearRect(0, 0, CROPPER_SIZE, CROPPER_SIZE);
+      const drawW = cropperImg.naturalWidth * scale;
+      const drawH = cropperImg.naturalHeight * scale;
+      const drawX = RAIO - offsetX * scale;
+      const drawY = RAIO - offsetY * scale;
+      ctx.drawImage(cropperImg, drawX, drawY, drawW, drawH);
+
+      ctx.save();
+      ctx.fillStyle = "rgba(0,0,0,0.55)";
+      ctx.beginPath();
+      ctx.rect(0, 0, CROPPER_SIZE, CROPPER_SIZE);
+      ctx.arc(RAIO, RAIO, RAIO, 0, Math.PI * 2, true);
+      ctx.fill("evenodd");
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.arc(RAIO, RAIO, RAIO - 1, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(255,255,255,0.9)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    function zoomSliderParaEscala(valorSlider) {
+      const t = valorSlider / 1000; // 0..1
+      return minScale * Math.pow(ZOOM_MAX_MULT, t);
+    }
+
+    function escalaParaZoomSlider(valorEscala) {
+      const t = Math.log(valorEscala / minScale) / Math.log(ZOOM_MAX_MULT);
+      return Math.round(Math.min(Math.max(t, 0), 1) * 1000);
+    }
+
+    function iniciarCropper(imgEl, boxInicial) {
+      cropperImg = imgEl;
+      minScale = CROPPER_SIZE / Math.min(imgEl.naturalWidth, imgEl.naturalHeight);
+      maxScale = minScale * ZOOM_MAX_MULT;
+
+      if (boxInicial) {
+        const [x1, y1, x2, y2] = boxInicial;
+        const lado = x2 - x1;
+        scale = Math.min(Math.max(CROPPER_SIZE / lado, minScale), maxScale);
+        offsetX = (x1 + x2) / 2;
+        offsetY = (y1 + y2) / 2;
+      } else {
+        scale = minScale;
+        offsetX = imgEl.naturalWidth / 2;
+        offsetY = imgEl.naturalHeight / 2;
+      }
+      clampOffset();
+      zoomSlider.value = escalaParaZoomSlider(scale);
+      desenharCropper();
+    }
+
+    function boxAtual() {
+      const rImg = RAIO / scale;
+      return [offsetX - rImg, offsetY - rImg, offsetX + rImg, offsetY + rImg];
+    }
+
+    zoomSlider.addEventListener("input", () => {
+      scale = zoomSliderParaEscala(Number(zoomSlider.value));
+      clampOffset();
+      desenharCropper();
+    });
+
+    let arrastando = false;
+    let inicioPointer = { x: 0, y: 0 };
+    let inicioOffset = { x: 0, y: 0 };
+
+    canvas.addEventListener("pointerdown", (ev) => {
+      arrastando = true;
+      canvas.setPointerCapture(ev.pointerId);
+      const rect = canvas.getBoundingClientRect();
+      inicioPointer = { x: ev.clientX, y: ev.clientY };
+      inicioOffset = { x: offsetX, y: offsetY };
+      canvas._escalaTela = canvas.width / rect.width; // canvas pode estar menor na tela (CSS max-width)
+    });
+    canvas.addEventListener("pointermove", (ev) => {
+      if (!arrastando) return;
+      const fator = canvas._escalaTela || 1;
+      const dx = (ev.clientX - inicioPointer.x) * fator;
+      const dy = (ev.clientY - inicioPointer.y) * fator;
+      offsetX = inicioOffset.x - dx / scale;
+      offsetY = inicioOffset.y - dy / scale;
+      clampOffset();
+      desenharCropper();
+    });
+    function pararArraste(ev) {
+      if (arrastando) canvas.releasePointerCapture(ev.pointerId);
+      arrastando = false;
+    }
+    canvas.addEventListener("pointerup", pararArraste);
+    canvas.addEventListener("pointercancel", pararArraste);
+
+    // ---------------------------------------------------------------
+    // Fluxo geral
+    // ---------------------------------------------------------------
+    let modoAtual = null;         // "unico" | "lote"
+    let arquivoUnico = null;      // File (fluxo de 1 imagem)
+    let boxUnicoAtual = null;     // ultimo recorte confirmado (p/ "Reposicionar")
+    let loteArquivos = [];        // File[] (fluxo de lote revisado)
+    let loteIndice = 0;
+    let loteBoxes = [];
+
+    function carregarImagemDeArquivo(file) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = URL.createObjectURL(file);
       });
     }
+
+    inputImagens.addEventListener("change", async () => {
+      limparErro();
+      const arquivos = Array.from(inputImagens.files);
+      if (arquivos.length === 0) return;
+
+      nomesArquivosDiv.textContent = "Carregando...";
+      nomesArquivosDiv.classList.remove("oculto");
+      try {
+        if (arquivos.length === 1) {
+          modoAtual = "unico";
+          arquivoUnico = arquivos[0];
+          boxUnicoAtual = null;
+          const img = await carregarImagemDeArquivo(arquivoUnico);
+          cropperProgresso.classList.add("oculto");
+          botaoConfirmar.textContent = "Gerar prévia";
+          iniciarCropper(img, null);
+          mostrarView("cropper");
+        } else {
+          loteArquivos = arquivos;
+          mostrarView("loteP");
+        }
+      } finally {
+        nomesArquivosDiv.classList.add("oculto");
+      }
+    });
+
+    document.getElementById("botao-lote-direto").addEventListener("click", () => {
+      // envia um form de verdade (nao AJAX) pra disparar o download do
+      // .zip direto, igual ao fluxo antigo -- sem recorte manual.
+      const form = document.createElement("form");
+      form.method = "post";
+      form.action = "/processar";
+      form.enctype = "multipart/form-data";
+      const dt = new DataTransfer();
+      loteArquivos.forEach((f) => dt.items.add(f));
+      const input = document.createElement("input");
+      input.type = "file";
+      input.name = "imagens";
+      input.multiple = true;
+      input.files = dt.files;
+      input.style.display = "none";
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
+    });
+
+    document.getElementById("botao-lote-revisar").addEventListener("click", async () => {
+      modoAtual = "lote";
+      loteIndice = 0;
+      loteBoxes = [];
+      await abrirCropperLote();
+    });
+
+    async function abrirCropperLote() {
+      const arquivo = loteArquivos[loteIndice];
+      const img = await carregarImagemDeArquivo(arquivo);
+      cropperProgresso.textContent = `Imagem ${loteIndice + 1} de ${loteArquivos.length}: ${arquivo.name}`;
+      cropperProgresso.classList.remove("oculto");
+      botaoConfirmar.textContent =
+        loteIndice === loteArquivos.length - 1 ? "Finalizar e gerar" : "Próxima imagem";
+      iniciarCropper(img, null);
+      mostrarView("cropper");
+    }
+
+    botaoConfirmar.addEventListener("click", async () => {
+      const box = boxAtual();
+      if (modoAtual === "unico") {
+        await gerarPreviaUnica(arquivoUnico, box);
+      } else {
+        loteBoxes.push(box);
+        if (loteIndice < loteArquivos.length - 1) {
+          loteIndice += 1;
+          await abrirCropperLote();
+        } else {
+          await gerarLoteRevisado();
+        }
+      }
+    });
+
+    async function gerarPreviaUnica(arquivo, box) {
+      limparErro();
+      botaoConfirmar.disabled = true;
+      botaoConfirmar.textContent = "Gerando...";
+      try {
+        const fd = new FormData();
+        fd.append("imagem", arquivo);
+        fd.append("x1", box[0]); fd.append("y1", box[1]);
+        fd.append("x2", box[2]); fd.append("y2", box[3]);
+        const resp = await fetch("/api/preview", { method: "POST", body: fd });
+        const dados = await resp.json();
+        if (!resp.ok) throw new Error(dados.erro || "Erro ao gerar prévia.");
+
+        boxUnicoAtual = box;
+        document.getElementById("preview-img").src = dados.preview;
+        const linkPrevia = document.getElementById("link-baixar-previa");
+        linkPrevia.href = dados.preview;
+        linkPrevia.download = dados.nome_preview;
+        const linkRecorte = document.getElementById("link-baixar-recorte");
+        linkRecorte.href = dados.crop;
+        linkRecorte.download = dados.nome_crop;
+        mostrarView("preview");
+      } catch (err) {
+        mostrarErro(err.message || String(err));
+        mostrarView("cropper");
+      } finally {
+        botaoConfirmar.disabled = false;
+        botaoConfirmar.textContent = "Gerar prévia";
+      }
+    }
+
+    async function gerarLoteRevisado() {
+      limparErro();
+      botaoConfirmar.disabled = true;
+      botaoConfirmar.textContent = "Gerando...";
+      try {
+        const fd = new FormData();
+        loteArquivos.forEach((f) => fd.append("imagens", f));
+        fd.append("caixas", JSON.stringify(loteBoxes));
+        const resp = await fetch("/api/lote-revisado", { method: "POST", body: fd });
+        const dados = await resp.json();
+        if (!resp.ok) throw new Error(dados.erro || "Erro ao gerar o lote.");
+
+        let resumo = `${dados.ok} imagem(ns) geradas.`;
+        if (dados.falhas && dados.falhas.length) {
+          resumo += ` ${dados.falhas.length} falha(s): ` + dados.falhas.join("; ");
+        }
+        document.getElementById("lote-resumo").textContent = resumo;
+        document.getElementById("link-baixar-previas-zip").href = dados.previews_zip;
+        document.getElementById("link-baixar-recortes-zip").href = dados.crops_zip;
+        mostrarView("loteResultado");
+      } catch (err) {
+        mostrarErro(err.message || String(err));
+        mostrarView("cropper");
+      } finally {
+        botaoConfirmar.disabled = false;
+        botaoConfirmar.textContent = "Finalizar e gerar";
+      }
+    }
+
+    document.getElementById("botao-reposicionar").addEventListener("click", async () => {
+      const img = await carregarImagemDeArquivo(arquivoUnico);
+      cropperProgresso.classList.add("oculto");
+      botaoConfirmar.textContent = "Gerar prévia";
+      iniciarCropper(img, boxUnicoAtual);
+      mostrarView("cropper");
+    });
+
+    document.getElementById("botao-gerar-outra").addEventListener("click", () => {
+      window.location.href = "/";
+    });
+  })();
   </script>
 </body>
 </html>

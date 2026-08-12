@@ -49,11 +49,28 @@ Abre uma janela para escolher uma ou mais imagens:
 ```
 
 Mesma ideia da GUI, mas numa página web (funciona no Safari do iPhone,
-Chrome do Android, etc. — nada para instalar). Uma imagem mostra a
-prévia com um botão "Salvar imagem"; várias imagens baixam um `.zip`
-com todas de uma vez (o navegador não deixa escolher uma pasta e salvar
-vários arquivos soltos, então o `.zip` é o equivalente prático disso na
-web).
+Chrome do Android, etc. — nada para instalar).
+
+**Uma imagem**: antes de gerar, um editor mostra a foto com um círculo
+por cima — arraste para posicionar, use o controle deslizante pra dar
+zoom (nunca ultrapassa os limites da própria foto, sem preencher com
+branco/preto). Depois de gerar, aparecem 4 botões:
+- **Baixar prévia** — a medalha pronta;
+- **Baixar imagem recortada (1:1)** — só o recorte escolhido, quadrado,
+  sem moldura da medalha, pronto pra usar em outro programa (ex.: o de
+  adesivos);
+- **Reposicionar** — volta pro editor de recorte com a última posição/
+  zoom escolhidos, pra ajustar;
+- **Gerar outra** — recomeça do zero.
+
+**Várias imagens de uma vez**: primeiro pergunta se você quer revisar o
+recorte de cada uma (abre o mesmo editor, uma imagem por vez) ou gerar
+tudo direto com o recorte automático centralizado. No fim, baixa um
+`.zip` com todas as prévias — o navegador não deixa escolher uma pasta e
+salvar vários arquivos soltos de uma vez, então o `.zip` é o equivalente
+prático disso na web. Se você revisou o recorte de cada uma, tem também
+um segundo botão pra baixar as imagens recortadas 1:1 de todas, no
+ângulo que você escolheu em cada uma.
 
 ### Publicar no Render (acesso de qualquer lugar, não só na mesma rede)
 
