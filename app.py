@@ -30,11 +30,13 @@ from __future__ import annotations
 import base64
 import io
 import json
+import secrets
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request, send_file
+from flask import Flask, abort, jsonify, render_template, request, send_file
 from PIL import Image
 from werkzeug.datastructures import FileStorage
 
@@ -47,6 +49,34 @@ app.config["MAX_CONTENT_LENGTH"] = 60 * 1024 * 1024  # 60MB no total do upload
 spec = get_medal_spec()
 
 CropBox = tuple[float, float, float, float]
+
+# Downloads (previa, recorte 1:1, .zip de lote) sao guardados aqui em
+# memoria por um token de uso unico, em vez de embutidos como data URI no
+# HTML/JSON -- o Safari do iPhone (o motivo desta versao web existir) tem
+# suporte inconsistente pra "baixar" data URIs grandes ou de tipos como
+# .zip, so tipo mostra a pagina em branco ou nao faz nada. Um link de
+# verdade pro navegador buscar (com Content-Disposition) funciona em
+# qualquer navegador. So funciona com 1 worker do gunicorn (ver
+# Procfile/render.yaml: --workers 1), senao o download podia cair num
+# processo que nao tem o token.
+_DOWNLOAD_TTL_SEGUNDOS = 15 * 60
+_downloads: dict[str, tuple[bytes, str, str, float]] = {}
+
+
+def _registrar_download(dados: bytes, mimetype: str, nome_arquivo: str) -> str:
+    agora = time.time()
+    for token, (_, _, _, expira_em) in list(_downloads.items()):
+        if expira_em < agora:
+            _downloads.pop(token, None)
+    token = secrets.token_urlsafe(16)
+    _downloads[token] = (dados, mimetype, nome_arquivo, agora + _DOWNLOAD_TTL_SEGUNDOS)
+    return token
+
+
+def _imagem_para_bytes(imagem: Image.Image) -> bytes:
+    buffer = io.BytesIO()
+    imagem.save(buffer, format="PNG")
+    return buffer.getvalue()
 
 
 def _extensao_valida(nome_arquivo: str) -> bool:
@@ -72,10 +102,11 @@ def _ler_box(valores: dict, prefixo: str = "") -> CropBox | None:
         return None
 
 
-def _to_data_uri(imagem: Image.Image, mimetype: str = "image/png") -> str:
-    buffer = io.BytesIO()
-    imagem.save(buffer, format="PNG")
-    return f"data:{mimetype};base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
+def _preview_data_uri(imagem: Image.Image) -> str:
+    """So para EXIBIR a previa inline na pagina (<img src="data:...">) --
+    isso e confiavel em qualquer navegador. O download em si usa
+    /download/<token> (ver _registrar_download), nao esta data URI."""
+    return "data:image/png;base64," + base64.b64encode(_imagem_para_bytes(imagem)).decode("ascii")
 
 
 def _crop_quadrada(caminho: Path, crop_box: CropBox | None) -> Image.Image:
@@ -102,10 +133,38 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/download/<token>")
+def download(token: str):
+    """Serve um download registrado por _registrar_download -- uso unico
+    (o token e removido assim que baixado) e expira em 15min se nunca for
+    usado. Link de verdade (nao data URI), pra funcionar em qualquer
+    navegador incluindo Safari do iPhone.
+
+    Sempre serve como application/octet-stream, mesmo pras imagens PNG:
+    o Safari do iOS tem visualizador nativo pra image/*, e quando o
+    Content-Type e "image/png" ele costuma so EXIBIR a imagem (ignorando
+    Content-Disposition: attachment) em vez de salvar -- octet-stream nao
+    tem visualizador embutido, entao forca o comportamento de "baixar".
+    """
+    entrada = _downloads.pop(token, None)
+    if entrada is None or entrada[3] < time.time():
+        abort(404, description="Link de download expirado ou já utilizado. Gere a imagem de novo.")
+    dados, _mimetype_original, nome_arquivo, _ = entrada
+    resposta = send_file(
+        io.BytesIO(dados),
+        mimetype="application/octet-stream",
+        as_attachment=True,
+        download_name=nome_arquivo,
+    )
+    resposta.headers["Cache-Control"] = "no-store"
+    return resposta
+
+
 @app.route("/api/preview", methods=["POST"])
 def api_preview():
-    """Uma imagem + recorte (opcional) -> previa da medalha + recorte
-    quadrado 1:1, os dois como data URIs (sem gravar nada no servidor)."""
+    """Uma imagem + recorte (opcional) -> previa da medalha (mostrada
+    inline) + links de download reais pra previa e pro recorte quadrado
+    1:1 (ver /download/<token>)."""
     arquivo = request.files.get("imagem")
     if not arquivo or not arquivo.filename:
         return jsonify(erro="Nenhuma imagem enviada."), 400
@@ -122,11 +181,16 @@ def api_preview():
             return jsonify(erro=f"Erro ao gerar mockup: {exc}"), 400
 
     nome_base = _sem_extensao(arquivo.filename)
+    token_preview = _registrar_download(
+        _imagem_para_bytes(resultado), "image/png", f"{nome_base}{spec.output_suffix}.png"
+    )
+    token_crop = _registrar_download(
+        _imagem_para_bytes(recorte), "image/png", f"{nome_base}_recorte.png"
+    )
     return jsonify(
-        preview=_to_data_uri(resultado),
-        crop=_to_data_uri(recorte),
-        nome_preview=f"{nome_base}{spec.output_suffix}.png",
-        nome_crop=f"{nome_base}_recorte.png",
+        preview=_preview_data_uri(resultado),
+        url_preview=f"/download/{token_preview}",
+        url_crop=f"/download/{token_crop}",
     )
 
 
@@ -178,8 +242,8 @@ def processar():
 @app.route("/api/lote-revisado", methods=["POST"])
 def api_lote_revisado():
     """Lote COM revisao individual: um recorte por imagem (escolhido no
-    navegador, um de cada vez), devolve dois .zip -- previas e recortes
-    quadrados -- como data URIs num unico JSON."""
+    navegador, um de cada vez), devolve links de download reais pra dois
+    .zip -- previas e recortes quadrados (ver /download/<token>)."""
     arquivos = [f for f in request.files.getlist("imagens") if f and f.filename]
     if not arquivos:
         return jsonify(erro="Nenhuma imagem enviada."), 400
@@ -223,11 +287,11 @@ def api_lote_revisado():
     if ok == 0:
         return jsonify(erro="Nenhuma imagem pode ser processada. Falhas: " + "; ".join(falhas)), 400
 
-    previews_buf.seek(0)
-    crops_buf.seek(0)
+    token_previews = _registrar_download(previews_buf.getvalue(), "application/zip", "medalhas.zip")
+    token_crops = _registrar_download(crops_buf.getvalue(), "application/zip", "recortes.zip")
     return jsonify(
-        previews_zip="data:application/zip;base64," + base64.b64encode(previews_buf.getvalue()).decode("ascii"),
-        crops_zip="data:application/zip;base64," + base64.b64encode(crops_buf.getvalue()).decode("ascii"),
+        url_previews_zip=f"/download/{token_previews}",
+        url_crops_zip=f"/download/{token_crops}",
         ok=ok,
         falhas=falhas,
     )

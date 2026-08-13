@@ -436,12 +436,10 @@
 
         boxUnicoAtual = box;
         document.getElementById("preview-img").src = dados.preview;
-        const linkPrevia = document.getElementById("link-baixar-previa");
-        linkPrevia.href = dados.preview;
-        linkPrevia.download = dados.nome_preview;
-        const linkRecorte = document.getElementById("link-baixar-recorte");
-        linkRecorte.href = dados.crop;
-        linkRecorte.download = dados.nome_crop;
+        // links de download de verdade (o servidor manda Content-Disposition
+        // com o nome do arquivo) -- nao data URI, pra funcionar no Safari.
+        document.getElementById("link-baixar-previa").href = dados.url_preview;
+        document.getElementById("link-baixar-recorte").href = dados.url_crop;
         mostrarView("preview");
       } catch (err) {
         mostrarErro(err.message || String(err));
@@ -469,8 +467,8 @@
           resumo += ` ${dados.falhas.length} falha(s): ` + dados.falhas.join("; ");
         }
         document.getElementById("lote-resumo").textContent = resumo;
-        document.getElementById("link-baixar-previas-zip").href = dados.previews_zip;
-        document.getElementById("link-baixar-recortes-zip").href = dados.crops_zip;
+        document.getElementById("link-baixar-previas-zip").href = dados.url_previews_zip;
+        document.getElementById("link-baixar-recortes-zip").href = dados.url_crops_zip;
         mostrarView("loteResultado");
       } catch (err) {
         mostrarErro(err.message || String(err));
