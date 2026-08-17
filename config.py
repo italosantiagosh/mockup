@@ -188,7 +188,7 @@ MEDAL_SPECS: dict[str, MedalSpec] = {
     # cliente diretamente.
     "prata_16mm": MedalSpec(
         id="prata_16mm",
-        nome="Medalha redonda prata 16mm",
+        nome="Medalha 1 lado Inox",
         base_path=ASSETS_DIR / "base_medalha.png",
         resina_path=ASSETS_DIR / "efeito_resina.png",
         center_x=630,
@@ -221,19 +221,19 @@ MEDAL_SPECS: dict[str, MedalSpec] = {
     # diferente especificamente pra essas pecas.
     "entremeio_prata": MedalSpec(
         id="entremeio_prata",
-        nome="Entremeio prata (3 argolas)",
+        nome="Entremeio prata (para terço)",
         base_path=ASSETS_DIR / "base_entremeio_prata.png",
         resina_path=ASSETS_DIR / "efeito_resina.png",
     ),
     "entremeio_ouro_velho": MedalSpec(
         id="entremeio_ouro_velho",
-        nome="Entremeio ouro velho (3 argolas)",
+        nome="Entremeio ouro velho (para terço)",
         base_path=ASSETS_DIR / "base_entremeio_ouro_velho.png",
         resina_path=ASSETS_DIR / "efeito_resina.png",
     ),
     "chaveiro": MedalSpec(
         id="chaveiro",
-        nome="Chaveiro",
+        nome="Chaveiro 1 lado",
         base_path=ASSETS_DIR / "base_chaveiro.png",
         resina_path=ASSETS_DIR / "efeito_resina.png",
     ),
