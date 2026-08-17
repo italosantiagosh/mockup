@@ -53,6 +53,28 @@
     label.dropzone .principal { font-weight: 600; }
     label.dropzone .secundario { font-size: 0.85rem; color: var(--muted); }
     input[type="file"] { display: none; }
+
+    .estilo-titulo { font-size: 0.85rem; font-weight: 600; color: var(--muted); margin: 0 0 8px; }
+    .estilo-seletor { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .estilo-chip { position: relative; }
+    .estilo-chip input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .estilo-chip span {
+      display: block;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--ink);
+      font-size: 0.85rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .estilo-chip input:checked + span {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+      font-weight: 600;
+    }
     #nomes-arquivos { margin-top: 10px; font-size: 0.85rem; color: var(--muted); word-break: break-word; }
     button, a.botao {
       display: block;
@@ -119,6 +141,17 @@
 
     <!-- 1) escolha de arquivos -->
     <section id="view-upload" class="card">
+      {% if estilos and estilos|length > 1 %}
+      <p class="estilo-titulo">Estilo da peça</p>
+      <div class="estilo-seletor" id="estilo-seletor">
+        {% for id, nome in estilos %}
+        <label class="estilo-chip">
+          <input type="radio" name="estilo" value="{{ id }}" {% if id == estilo_padrao %}checked{% endif %}>
+          <span>{{ nome }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      {% endif %}
       <label class="dropzone" for="input-imagens">
         <span class="icone">📷</span>
         <span class="principal">Toque para escolher imagem(ns)</span>
@@ -333,6 +366,15 @@
     let loteIndice = 0;
     let loteBoxes = [];
 
+    function estiloSelecionado() {
+      const el = document.querySelector('input[name="estilo"]:checked');
+      return el ? el.value : "";
+    }
+    // capturado no momento em que o(s) arquivo(s) sao escolhidos, pra
+    // "Reposicionar" continuar usando o mesmo estilo mesmo que o usuario
+    // mude a selecao depois (o seletor so aparece na tela inicial).
+    let estiloAtual = estiloSelecionado();
+
     function carregarImagemDeArquivo(file) {
       return new Promise((resolve, reject) => {
         const img = new Image();
@@ -346,6 +388,7 @@
       limparErro();
       const arquivos = Array.from(inputImagens.files);
       if (arquivos.length === 0) return;
+      estiloAtual = estiloSelecionado();
 
       nomesArquivosDiv.textContent = "Carregando...";
       nomesArquivosDiv.classList.remove("oculto");
@@ -384,6 +427,11 @@
       input.files = dt.files;
       input.style.display = "none";
       form.appendChild(input);
+      const inputEstilo = document.createElement("input");
+      inputEstilo.type = "hidden";
+      inputEstilo.name = "medalha";
+      inputEstilo.value = estiloSelecionado();
+      form.appendChild(inputEstilo);
       document.body.appendChild(form);
       form.submit();
     });
@@ -428,6 +476,7 @@
       try {
         const fd = new FormData();
         fd.append("imagem", arquivo);
+        fd.append("medalha", estiloAtual);
         fd.append("x1", box[0]); fd.append("y1", box[1]);
         fd.append("x2", box[2]); fd.append("y2", box[3]);
         const resp = await fetch("/api/preview", { method: "POST", body: fd });
@@ -457,6 +506,7 @@
       try {
         const fd = new FormData();
         loteArquivos.forEach((f) => fd.append("imagens", f));
+        fd.append("medalha", estiloAtual);
         fd.append("caixas", JSON.stringify(loteBoxes));
         const resp = await fetch("/api/lote-revisado", { method: "POST", body: fd });
         const dados = await resp.json();

@@ -41,14 +41,27 @@ from PIL import Image
 from werkzeug.datastructures import FileStorage
 
 from compositor import auto_cover_box, compose_medal, crop_to_box, load_rgba
-from config import IMAGE_EXTENSIONS, get_medal_spec
+from config import ACTIVE_MEDAL_ID, IMAGE_EXTENSIONS, MEDAL_SPECS, get_medal_spec
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 60 * 1024 * 1024  # 60MB no total do upload
 
-spec = get_medal_spec()
-
 CropBox = tuple[float, float, float, float]
+
+# Lista (id, nome) pra popular o seletor de estilo na pagina -- ordem do
+# dict de MEDAL_SPECS em config.py, entao a ordem de cadastro la e a
+# ordem que aparece pro usuario.
+ESTILOS_DISPONIVEIS = [(spec_id, s.nome) for spec_id, s in MEDAL_SPECS.items()]
+
+
+def _resolver_spec():
+    """Le o campo 'medalha' do form (id de MEDAL_SPECS) -- cai pro padrao
+    (ACTIVE_MEDAL_ID) se nao vier ou vier um id desconhecido, em vez de
+    dar erro (o front sempre manda um valor valido, mas nao custa)."""
+    medalha_id = request.form.get("medalha") or ACTIVE_MEDAL_ID
+    if medalha_id not in MEDAL_SPECS:
+        medalha_id = ACTIVE_MEDAL_ID
+    return get_medal_spec(medalha_id)
 
 # Downloads (previa, recorte 1:1, .zip de lote) sao guardados aqui em
 # memoria por um token de uso unico, em vez de embutidos como data URI no
@@ -128,9 +141,15 @@ def _salvar_temp(arquivo: FileStorage) -> tempfile._TemporaryFileWrapper:
     return tmp
 
 
+def _render_index(**kwargs):
+    return render_template(
+        "index.html", estilos=ESTILOS_DISPONIVEIS, estilo_padrao=ACTIVE_MEDAL_ID, **kwargs
+    )
+
+
 @app.route("/", methods=["GET"])
 def index():
-    return render_template("index.html")
+    return _render_index()
 
 
 @app.route("/download/<token>")
@@ -171,6 +190,7 @@ def api_preview():
     if not _extensao_valida(arquivo.filename):
         return jsonify(erro="Formato invalido. Aceitos: " + ", ".join(IMAGE_EXTENSIONS)), 400
 
+    spec = _resolver_spec()
     box = _ler_box(request.form)
     with _salvar_temp(arquivo) as tmp:
         caminho = Path(tmp.name)
@@ -200,16 +220,16 @@ def processar():
     imagem, baixa um .zip direto -- comportamento original."""
     arquivos = [f for f in request.files.getlist("imagens") if f and f.filename]
     if not arquivos:
-        return render_template("index.html", erro="Selecione ao menos uma imagem.")
+        return _render_index(erro="Selecione ao menos uma imagem.")
 
     validos = [f for f in arquivos if _extensao_valida(f.filename)]
     invalidos = [f.filename for f in arquivos if not _extensao_valida(f.filename)]
     if not validos:
-        return render_template(
-            "index.html",
+        return _render_index(
             erro="Nenhum arquivo valido. Formatos aceitos: " + ", ".join(IMAGE_EXTENSIONS),
         )
 
+    spec = _resolver_spec()
     zip_buffer = io.BytesIO()
     falhas = list(invalidos)
     ok = 0
@@ -228,8 +248,7 @@ def processar():
             ok += 1
 
     if ok == 0:
-        return render_template(
-            "index.html",
+        return _render_index(
             erro="Nenhuma imagem pode ser processada. Falhas: " + "; ".join(falhas),
         )
 
@@ -255,6 +274,7 @@ def api_lote_revisado():
     if len(caixas) != len(arquivos):
         return jsonify(erro="Numero de recortes nao corresponde ao numero de imagens."), 400
 
+    spec = _resolver_spec()
     previews_buf = io.BytesIO()
     crops_buf = io.BytesIO()
     falhas: list[str] = []

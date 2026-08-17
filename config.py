@@ -196,6 +196,47 @@ MEDAL_SPECS: dict[str, MedalSpec] = {
         inner_radius=355,
         overlap_px=8,
     ),
+
+    # ------------------------------------------------------------------
+    # Entremeios (3 argolas, prata / ouro velho) e chaveiro -- pedidos em
+    # 2026-08-13. AINDA SEM CALIBRAR: os arquivos de base
+    # (base_entremeio_prata.png, base_entremeio_ouro_velho.png,
+    # base_chaveiro.png) nao foram enviados pro repositorio ainda, entao
+    # essas entradas usam so as fracoes estimadas (centro/raio "no olho")
+    # como ponto de partida -- rode `python main.py --calibrar --medalha
+    # <id>` assim que os arquivos chegarem em assets/ e ajuste
+    # center_x/center_y/inner_radius/overlap_px (pixels) igual foi feito
+    # pra prata_16mm.
+    #
+    # Os 3 entremeios tem TRES argolas ao redor do anel (~10h, ~2h e 6h),
+    # nao uma so no topo -- vao precisar de keepout_boxes com tres caixas
+    # (uma por argola) depois de calibrado, pra nenhuma foto/resina
+    # alcancar essas argolas. O chaveiro tem uma unica argola + a
+    # correntinha/chaveiro de metal presos nela, igual a base antiga com
+    # 1 argola (base_medalha.png antes de virar circulo perfeito) --
+    # provavelmente vai precisar de 1 keepout_box tambem.
+    #
+    # Reaproveitando assets/efeito_resina.png pros tres por enquanto --
+    # cliente disse que decide depois se manda um efeito de resina
+    # diferente especificamente pra essas pecas.
+    "entremeio_prata": MedalSpec(
+        id="entremeio_prata",
+        nome="Entremeio prata (3 argolas)",
+        base_path=ASSETS_DIR / "base_entremeio_prata.png",
+        resina_path=ASSETS_DIR / "efeito_resina.png",
+    ),
+    "entremeio_ouro_velho": MedalSpec(
+        id="entremeio_ouro_velho",
+        nome="Entremeio ouro velho (3 argolas)",
+        base_path=ASSETS_DIR / "base_entremeio_ouro_velho.png",
+        resina_path=ASSETS_DIR / "efeito_resina.png",
+    ),
+    "chaveiro": MedalSpec(
+        id="chaveiro",
+        nome="Chaveiro",
+        base_path=ASSETS_DIR / "base_chaveiro.png",
+        resina_path=ASSETS_DIR / "efeito_resina.png",
+    ),
 }
 
 ACTIVE_MEDAL_ID = "prata_16mm"

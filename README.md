@@ -17,6 +17,20 @@ Assets reais calibrados em `MEDAL_SPECS["prata_16mm"]` (`config.py`).
 calibração atual; comparar com `referencias/` para validar antes de
 gerar o lote completo.
 
+**Pendente**: três estilos novos foram pedidos (entremeio prata,
+entremeio ouro velho, chaveiro) e já estão cadastrados em
+`MEDAL_SPECS` e no seletor da versão web, mas **sem calibrar** — os
+arquivos de base ainda não chegaram no repositório. Falta adicionar em
+`assets/`:
+- `base_entremeio_prata.png`
+- `base_entremeio_ouro_velho.png`
+- `base_chaveiro.png`
+
+Os entremeios têm três argolas ao redor do anel (não uma só no topo),
+então também vão precisar de `keepout_boxes` com três caixas cada
+depois de calibrados (ver comentário em `config.py`). Por enquanto os
+três reaproveitam `assets/efeito_resina.png`.
+
 ## Instalação
 
 ```bash
@@ -50,6 +64,10 @@ Abre uma janela para escolher uma ou mais imagens:
 
 Mesma ideia da GUI, mas numa página web (funciona no Safari do iPhone,
 Chrome do Android, etc. — nada para instalar).
+
+Quando há mais de uma base cadastrada em `MEDAL_SPECS`, a tela inicial
+mostra um seletor de estilo (chips) antes de escolher a(s) imagem(ns) —
+o nome de cada opção vem do campo `nome` do `MedalSpec` correspondente.
 
 **Uma imagem**: antes de gerar, um editor mostra a foto com um círculo
 por cima — arraste para posicionar, use o controle deslizante pra dar
