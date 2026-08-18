@@ -198,23 +198,26 @@ MEDAL_SPECS: dict[str, MedalSpec] = {
     ),
 
     # ------------------------------------------------------------------
-    # Entremeios (3 argolas, prata / ouro velho) e chaveiro -- pedidos em
-    # 2026-08-13. AINDA SEM CALIBRAR: os arquivos de base
-    # (base_entremeio_prata.png, base_entremeio_ouro_velho.png,
-    # base_chaveiro.png) nao foram enviados pro repositorio ainda, entao
-    # essas entradas usam so as fracoes estimadas (centro/raio "no olho")
-    # como ponto de partida -- rode `python main.py --calibrar --medalha
-    # <id>` assim que os arquivos chegarem em assets/ e ajuste
-    # center_x/center_y/inner_radius/overlap_px (pixels) igual foi feito
-    # pra prata_16mm.
+    # Entremeios (prata / ouro velho, para terço) e chaveiro -- pedidos em
+    # 2026-08-13, arquivos de base recebidos em 2026-08-18 (1254x1254px
+    # cada). Calibrado por deteccao de pixel (nao "no olho"): a cavidade
+    # interna e o maior componente conexo de pixels "brancos" que NAO toca
+    # a borda da imagem (ou seja, o buraco fechado pelo anel de metal),
+    # depois um circulo de minimos quadrados (Kasa) foi ajustado ao
+    # contorno desse componente:
+    #   entremeio_prata:       centro (624.4, 538.4)  raio 353.2  resid ~3.3px
+    #   entremeio_ouro_velho:  centro (622.8, 515.8)  raio 402.6  resid ~1.7px
+    #   chaveiro:              centro (784.9, 733.0)  raio 266.1  resid ~5.6px
     #
-    # Os 3 entremeios tem TRES argolas ao redor do anel (~10h, ~2h e 6h),
-    # nao uma so no topo -- vao precisar de keepout_boxes com tres caixas
-    # (uma por argola) depois de calibrado, pra nenhuma foto/resina
-    # alcancar essas argolas. O chaveiro tem uma unica argola + a
-    # correntinha/chaveiro de metal presos nela, igual a base antiga com
-    # 1 argola (base_medalha.png antes de virar circulo perfeito) --
-    # provavelmente vai precisar de 1 keepout_box tambem.
+    # Os 3 entremeios tem tres argolas ao redor do anel principal (~10h,
+    # ~2h e ~6h) e o chaveiro tem a argola/correntinha presa por cima do
+    # bezel -- mas em todos os casos a argola fica inteiramente POR FORA
+    # do anel/bezel principal, sem cruzar nem afinar a parede que cerca a
+    # cavidade (parede fica intacta e continua em 360 graus, igual a
+    # base_medalha.png depois de virar "circulo perfeito"). Verificado
+    # isolando o componente conexo da cavidade e conferindo visualmente
+    # que forma um circulo cheio, sem interrupcao nenhuma perto das
+    # argolas -- por isso nenhum keepout_boxes e necessario aqui.
     #
     # Reaproveitando assets/efeito_resina.png pros tres por enquanto --
     # cliente disse que decide depois se manda um efeito de resina
@@ -224,18 +227,30 @@ MEDAL_SPECS: dict[str, MedalSpec] = {
         nome="Entremeio prata (para terço)",
         base_path=ASSETS_DIR / "base_entremeio_prata.png",
         resina_path=ASSETS_DIR / "efeito_resina.png",
+        center_x=624.4,
+        center_y=538.4,
+        inner_radius=353.2,
+        overlap_px=8,
     ),
     "entremeio_ouro_velho": MedalSpec(
         id="entremeio_ouro_velho",
         nome="Entremeio ouro velho (para terço)",
         base_path=ASSETS_DIR / "base_entremeio_ouro_velho.png",
         resina_path=ASSETS_DIR / "efeito_resina.png",
+        center_x=622.8,
+        center_y=515.8,
+        inner_radius=402.6,
+        overlap_px=8,
     ),
     "chaveiro": MedalSpec(
         id="chaveiro",
         nome="Chaveiro 1 lado",
         base_path=ASSETS_DIR / "base_chaveiro.png",
         resina_path=ASSETS_DIR / "efeito_resina.png",
+        center_x=784.9,
+        center_y=733.0,
+        inner_radius=266.1,
+        overlap_px=8,
     ),
 }
 

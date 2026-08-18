@@ -12,24 +12,20 @@ recorte "cover" + máscara circular + alpha compositing com Pillow, na ordem:
 
 ## Status
 
-Assets reais calibrados em `MEDAL_SPECS["prata_16mm"]` (`config.py`).
+Todas as 4 bases cadastradas em `MEDAL_SPECS` (`config.py`) estão
+calibradas com os assets reais: `prata_16mm` (Medalha 1 lado Inox),
+`entremeio_prata` e `entremeio_ouro_velho` (para terço) e `chaveiro`
+(Chaveiro 1 lado). Nos três novos estilos, a cavidade interna forma um
+círculo completo e ininterrupto (as argolas ficam inteiramente por fora
+do anel/bezel, sem afinar a parede), então nenhum `keepout_boxes` foi
+necessário — diferente da `prata_16mm` original antes de virar "círculo
+perfeito". Os três reaproveitam `assets/efeito_resina.png` por enquanto
+(cliente decide depois se manda um efeito de resina diferente
+especificamente pra essas peças).
+
 `teste_composicao.png` (na raiz do repo) é o resultado gerado com a
-calibração atual; comparar com `referencias/` para validar antes de
-gerar o lote completo.
-
-**Pendente**: três estilos novos foram pedidos (entremeio prata,
-entremeio ouro velho, chaveiro) e já estão cadastrados em
-`MEDAL_SPECS` e no seletor da versão web, mas **sem calibrar** — os
-arquivos de base ainda não chegaram no repositório. Falta adicionar em
-`assets/`:
-- `base_entremeio_prata.png`
-- `base_entremeio_ouro_velho.png`
-- `base_chaveiro.png`
-
-Os entremeios têm três argolas ao redor do anel (não uma só no topo),
-então também vão precisar de `keepout_boxes` com três caixas cada
-depois de calibrados (ver comentário em `config.py`). Por enquanto os
-três reaproveitam `assets/efeito_resina.png`.
+calibração da `prata_16mm`; comparar com `referencias/` para validar
+antes de gerar o lote completo.
 
 ## Instalação
 
