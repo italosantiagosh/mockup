@@ -222,6 +222,14 @@ MEDAL_SPECS: dict[str, MedalSpec] = {
     # Reaproveitando assets/efeito_resina.png pros tres por enquanto --
     # cliente disse que decide depois se manda um efeito de resina
     # diferente especificamente pra essas pecas.
+    # resina_radius = raio_interno + metade da espessura da borda -- pedido
+    # do usuario em 2026-09-02 (mesma ideia calibrada primeiro na medalha
+    # de 2 lados, ver mais abaixo): a foto encosta so no espaco branco, mas
+    # a resina avanca visivelmente por cima do aro metalico. Espessura
+    # medida por varredura radial nos assets reais (script descartavel,
+    # mesmo metodo da medalha de 2 lados, filtrando as 3 argolas):
+    #   entremeio_prata:       raio_externo 401.2  (espessura 48.0px)
+    #   entremeio_ouro_velho:  raio_externo 446.6  (espessura 44.0px)
     "entremeio_prata": MedalSpec(
         id="entremeio_prata",
         nome="Entremeio prata (para terço)",
@@ -230,6 +238,7 @@ MEDAL_SPECS: dict[str, MedalSpec] = {
         center_x=624.4,
         center_y=538.4,
         inner_radius=353.2,
+        resina_radius=353.2 + 48.0 / 2,
         overlap_px=8,
     ),
     "entremeio_ouro_velho": MedalSpec(
@@ -240,6 +249,7 @@ MEDAL_SPECS: dict[str, MedalSpec] = {
         center_x=622.8,
         center_y=515.8,
         inner_radius=402.6,
+        resina_radius=402.6 + 44.0 / 2,
         overlap_px=8,
     ),
     "chaveiro": MedalSpec(
@@ -251,6 +261,57 @@ MEDAL_SPECS: dict[str, MedalSpec] = {
         center_y=733.0,
         inner_radius=266.1,
         overlap_px=8,
+    ),
+
+    # ------------------------------------------------------------------
+    # Medalha de 2 lados (prata / ouro velho) -- pedido em 2026-09-02,
+    # arquivos base_medalha_2lados_prata.png / ..._ouro_velho.png
+    # (1254x1254px cada). Base BEM diferente da "prata_16mm" acima (aro
+    # fino, sem embutir a foto atras de um disco solido) -- NAO mexer na
+    # prata_16mm, ela e outro produto (1 lado) e continua perfeita como
+    # esta.
+    #
+    # Calibrado por deteccao de pixel (script descartavel, mesmo metodo
+    # dos entremeios): cavidade = maior componente conexo de branco que
+    # nao toca a borda da imagem, centro e raio pela area; raio EXTERNO
+    # do aro metalico por varredura radial (360/2 angulos, pulando uma
+    # fatia de 40 graus perto da argola no topo), exigindo 10px brancos
+    # seguidos pra confirmar que saiu do metal (evita falso-positivo em
+    # brilho/reflexo na prata polida):
+    #   prata:       centro (621.9, 666.4)  raio_interno 423.8  raio_externo 478.8  (espessura 55.0px)
+    #   ouro_velho:  centro (628.0, 670.8)  raio_interno 421.9  raio_externo 481.9  (espessura 60.0px)
+    #
+    # resina_radius = raio_interno + espessura/2 (pedido explicito do
+    # usuario: "o efeito resina é um pouco maior, na metade da espessura
+    # dessa borda" -- a foto encosta so no espaco branco, mas o vidro/
+    # resina precisa avancar visivelmente por cima do aro metalico).
+    #
+    # Um item "2 lados" e so essa MESMA base aplicada duas vezes (uma foto
+    # na frente, outra no verso) -- ver app.py/templates/index.html pro
+    # fluxo de duas fotos. O entremeio de 2 lados NAO tem entrada propria
+    # aqui: reaproveita entremeio_prata/entremeio_ouro_velho acima do
+    # jeito que ja estao (mesma base fisica pros dois lados).
+    "medalha_2lados_prata": MedalSpec(
+        id="medalha_2lados_prata",
+        nome="Medalha 2 lados Prata",
+        base_path=ASSETS_DIR / "base_medalha_2lados_prata.png",
+        resina_path=ASSETS_DIR / "efeito_resina.png",
+        center_x=621.9,
+        center_y=666.4,
+        inner_radius=423.8,
+        resina_radius=423.8 + 55.0 / 2,
+        overlap_px=2,
+    ),
+    "medalha_2lados_ouro_velho": MedalSpec(
+        id="medalha_2lados_ouro_velho",
+        nome="Medalha 2 lados Ouro velho",
+        base_path=ASSETS_DIR / "base_medalha_2lados_ouro_velho.png",
+        resina_path=ASSETS_DIR / "efeito_resina.png",
+        center_x=628.0,
+        center_y=670.8,
+        inner_radius=421.9,
+        resina_radius=421.9 + 60.0 / 2,
+        overlap_px=2,
     ),
 }
 

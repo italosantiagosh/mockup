@@ -34,10 +34,11 @@ import secrets
 import tempfile
 import time
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path
 
 from flask import Flask, abort, jsonify, render_template, request, send_file
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from werkzeug.datastructures import FileStorage
 
 from compositor import auto_cover_box, compose_medal, crop_to_box, load_rgba
@@ -48,20 +49,50 @@ app.config["MAX_CONTENT_LENGTH"] = 60 * 1024 * 1024  # 60MB no total do upload
 
 CropBox = tuple[float, float, float, float]
 
-# Lista (id, nome) pra popular o seletor de estilo na pagina -- ordem do
-# dict de MEDAL_SPECS em config.py, entao a ordem de cadastro la e a
-# ordem que aparece pro usuario.
-ESTILOS_DISPONIVEIS = [(spec_id, s.nome) for spec_id, s in MEDAL_SPECS.items()]
+
+@dataclass(frozen=True)
+class OpcaoEstilo:
+    """Uma opcao do seletor de estilo na pagina. Normalmente 1:1 com um
+    MedalSpec (id == spec_id), mas "2 lados" e uma nocao so de UI/fluxo,
+    nao de geometria -- pedido em 2026-09-03 (ver conversa), a peca fisica
+    e igual (mesma MedalSpec) dos dois lados, so muda que o site pede duas
+    fotos (frente/verso) em vez de uma, e devolve as duas juntas numa
+    previa lado a lado. Por isso "entremeio_2lados_*" abaixo aponta pro
+    MESMO spec_id que a versao de 1 lado (entremeio_prata/ouro_velho) --
+    nao existe MedalSpec separado pra isso em config.py. Ja "medalha_2lados"
+    tem MedalSpec proprio (base fisica diferente da prata_16mm)."""
+
+    id: str
+    nome: str
+    spec_id: str
+    duas_faces: bool = False
 
 
-def _resolver_spec():
-    """Le o campo 'medalha' do form (id de MEDAL_SPECS) -- cai pro padrao
-    (ACTIVE_MEDAL_ID) se nao vier ou vier um id desconhecido, em vez de
-    dar erro (o front sempre manda um valor valido, mas nao custa)."""
-    medalha_id = request.form.get("medalha") or ACTIVE_MEDAL_ID
-    if medalha_id not in MEDAL_SPECS:
-        medalha_id = ACTIVE_MEDAL_ID
-    return get_medal_spec(medalha_id)
+# Lista de opcoes do seletor de estilo -- ordem = ordem de exibicao pro
+# usuario. As 4 primeiras sao 1:1 com MEDAL_SPECS (id == spec_id); as de
+# "2 lados" sao virtuais (ver OpcaoEstilo acima).
+ESTILOS_DISPONIVEIS: list[OpcaoEstilo] = [
+    OpcaoEstilo(spec_id, s.nome, spec_id) for spec_id, s in MEDAL_SPECS.items()
+    if spec_id not in ("medalha_2lados_prata", "medalha_2lados_ouro_velho")
+] + [
+    OpcaoEstilo("medalha_2lados_prata", MEDAL_SPECS["medalha_2lados_prata"].nome,
+                "medalha_2lados_prata", duas_faces=True),
+    OpcaoEstilo("medalha_2lados_ouro_velho", MEDAL_SPECS["medalha_2lados_ouro_velho"].nome,
+                "medalha_2lados_ouro_velho", duas_faces=True),
+    OpcaoEstilo("entremeio_2lados_prata", "Entremeio prata 2 lados (para terço)",
+                "entremeio_prata", duas_faces=True),
+    OpcaoEstilo("entremeio_2lados_ouro_velho", "Entremeio ouro velho 2 lados (para terço)",
+                "entremeio_ouro_velho", duas_faces=True),
+]
+_OPCOES_POR_ID = {o.id: o for o in ESTILOS_DISPONIVEIS}
+
+
+def _resolver_opcao() -> OpcaoEstilo:
+    """Le o campo 'medalha' do form (id de ESTILOS_DISPONIVEIS) -- cai pro
+    padrao (ACTIVE_MEDAL_ID) se nao vier ou vier um id desconhecido, em vez
+    de dar erro (o front sempre manda um valor valido, mas nao custa)."""
+    estilo_id = request.form.get("medalha") or ACTIVE_MEDAL_ID
+    return _OPCOES_POR_ID.get(estilo_id) or _OPCOES_POR_ID[ACTIVE_MEDAL_ID]
 
 # Downloads (previa, recorte 1:1, .zip de lote) sao guardados aqui em
 # memoria por um token de uso unico, em vez de embutidos como data URI no
@@ -141,6 +172,35 @@ def _salvar_temp(arquivo: FileStorage) -> tempfile._TemporaryFileWrapper:
     return tmp
 
 
+def _combinar_lado_a_lado(frente: Image.Image, verso: Image.Image) -> Image.Image:
+    """Previa unica de um item "2 lados": frente e verso lado a lado, com
+    legenda embaixo de cada metade -- so pra revisao/aprovacao antes de
+    mandar pra producao (pedido explicito do usuario em 2026-09-03: so a
+    previa combinada, sem baixar frente/verso como arquivos separados
+    aqui). frente/verso sempre saem quadrados do mesmo tamanho (mesma
+    MedalSpec nos dois lados), entao e so concatenar horizontal."""
+    gap = 24
+    altura_legenda = max(48, frente.height // 18)
+    largura_total = frente.width + gap + verso.width
+    altura_total = max(frente.height, verso.height) + altura_legenda
+    canvas = Image.new("RGB", (largura_total, altura_total), (255, 255, 255))
+    canvas.paste(frente.convert("RGB"), (0, 0))
+    canvas.paste(verso.convert("RGB"), (frente.width + gap, 0))
+
+    desenho = ImageDraw.Draw(canvas)
+    try:
+        fonte = ImageFont.load_default(size=max(20, altura_legenda - 16))
+    except TypeError:  # Pillow antigo sem suporte a size= em load_default
+        fonte = ImageFont.load_default()
+    y_texto = max(frente.height, verso.height) + (altura_legenda - 24) // 2
+    centros = (frente.width / 2, frente.width + gap + verso.width / 2)
+    for texto, x_centro in zip(("Frente", "Verso"), centros):
+        caixa_texto = desenho.textbbox((0, 0), texto, font=fonte)
+        largura_texto = caixa_texto[2] - caixa_texto[0]
+        desenho.text((x_centro - largura_texto / 2, y_texto), texto, fill=(43, 38, 32), font=fonte)
+    return canvas
+
+
 def _render_index(**kwargs):
     return render_template(
         "index.html", estilos=ESTILOS_DISPONIVEIS, estilo_padrao=ACTIVE_MEDAL_ID, **kwargs
@@ -184,13 +244,17 @@ def api_preview():
     """Uma imagem + recorte (opcional) -> previa da medalha (mostrada
     inline) + links de download reais pra previa e pro recorte quadrado
     1:1 (ver /download/<token>)."""
+    opcao = _resolver_opcao()
+    if opcao.duas_faces:
+        return jsonify(erro="Este estilo é de 2 lados -- use o fluxo de duas fotos."), 400
+
     arquivo = request.files.get("imagem")
     if not arquivo or not arquivo.filename:
         return jsonify(erro="Nenhuma imagem enviada."), 400
     if not _extensao_valida(arquivo.filename):
         return jsonify(erro="Formato invalido. Aceitos: " + ", ".join(IMAGE_EXTENSIONS)), 400
 
-    spec = _resolver_spec()
+    spec = get_medal_spec(opcao.spec_id)
     box = _ler_box(request.form)
     with _salvar_temp(arquivo) as tmp:
         caminho = Path(tmp.name)
@@ -214,6 +278,46 @@ def api_preview():
     )
 
 
+@app.route("/api/preview-2lados", methods=["POST"])
+def api_preview_2lados():
+    """Duas fotos (frente + verso, cada uma com seu proprio recorte
+    opcional) de um item "2 lados" -> uma previa unica lado a lado, com
+    link de download real (ver /download/<token>). So a previa combinada
+    -- sem recorte 1:1 separado por lado aqui, pedido explicito do
+    usuario em 2026-09-03."""
+    opcao = _resolver_opcao()
+    if not opcao.duas_faces:
+        return jsonify(erro="Este estilo nao e de 2 lados."), 400
+
+    arq_frente = request.files.get("imagem_frente")
+    arq_verso = request.files.get("imagem_verso")
+    if not arq_frente or not arq_frente.filename or not arq_verso or not arq_verso.filename:
+        return jsonify(erro="Envie as duas fotos (frente e verso)."), 400
+    for arq in (arq_frente, arq_verso):
+        if not _extensao_valida(arq.filename):
+            return jsonify(erro="Formato invalido. Aceitos: " + ", ".join(IMAGE_EXTENSIONS)), 400
+
+    spec = get_medal_spec(opcao.spec_id)
+    box_frente = _ler_box(request.form, "frente_")
+    box_verso = _ler_box(request.form, "verso_")
+    try:
+        with _salvar_temp(arq_frente) as tmp_f, _salvar_temp(arq_verso) as tmp_v:
+            resultado_frente = compose_medal(spec, Path(tmp_f.name), crop_box=box_frente)
+            resultado_verso = compose_medal(spec, Path(tmp_v.name), crop_box=box_verso)
+    except Exception as exc:
+        return jsonify(erro=f"Erro ao gerar mockup: {exc}"), 400
+
+    combinada = _combinar_lado_a_lado(resultado_frente, resultado_verso)
+    nome_base = _sem_extensao(arq_frente.filename)
+    token_preview = _registrar_download(
+        _imagem_para_bytes(combinada), "image/png", f"{nome_base}{spec.output_suffix}_2lados.png"
+    )
+    return jsonify(
+        preview=_preview_data_uri(combinada),
+        url_preview=f"/download/{token_preview}",
+    )
+
+
 @app.route("/processar", methods=["POST"])
 def processar():
     """Lote SEM revisao individual: recorte automatico (cover) pra cada
@@ -229,7 +333,13 @@ def processar():
             erro="Nenhum arquivo valido. Formatos aceitos: " + ", ".join(IMAGE_EXTENSIONS),
         )
 
-    spec = _resolver_spec()
+    opcao = _resolver_opcao()
+    if opcao.duas_faces:
+        return _render_index(
+            erro="Este estilo é de 2 lados -- o modo em lote ainda não suporta isso aqui. "
+                 "Envie uma peça de cada vez (imagem única) pra usar o fluxo de frente/verso.",
+        )
+    spec = get_medal_spec(opcao.spec_id)
     zip_buffer = io.BytesIO()
     falhas = list(invalidos)
     ok = 0
@@ -274,7 +384,13 @@ def api_lote_revisado():
     if len(caixas) != len(arquivos):
         return jsonify(erro="Numero de recortes nao corresponde ao numero de imagens."), 400
 
-    spec = _resolver_spec()
+    opcao = _resolver_opcao()
+    if opcao.duas_faces:
+        return jsonify(
+            erro="Este estilo é de 2 lados -- o modo em lote ainda não suporta isso aqui. "
+                 "Envie uma peça de cada vez (imagem única) pra usar o fluxo de frente/verso."
+        ), 400
+    spec = get_medal_spec(opcao.spec_id)
     previews_buf = io.BytesIO()
     crops_buf = io.BytesIO()
     falhas: list[str] = []

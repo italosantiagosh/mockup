@@ -144,10 +144,10 @@
       {% if estilos and estilos|length > 1 %}
       <p class="estilo-titulo">Estilo da peça</p>
       <div class="estilo-seletor" id="estilo-seletor">
-        {% for id, nome in estilos %}
+        {% for opt in estilos %}
         <label class="estilo-chip">
-          <input type="radio" name="estilo" value="{{ id }}" {% if id == estilo_padrao %}checked{% endif %}>
-          <span>{{ nome }}</span>
+          <input type="radio" name="estilo" value="{{ opt.id }}" data-duas-faces="{{ '1' if opt.duas_faces else '0' }}" {% if opt.id == estilo_padrao %}checked{% endif %}>
+          <span>{{ opt.nome }}</span>
         </label>
         {% endfor %}
       </div>
@@ -155,7 +155,7 @@
       <label class="dropzone" for="input-imagens">
         <span class="icone">📷</span>
         <span class="principal">Toque para escolher imagem(ns)</span>
-        <span class="secundario">Uma imagem: você ajusta o recorte e vê a prévia.<br>Várias: você escolhe se quer ajustar cada uma.</span>
+        <span class="secundario">Uma imagem: você ajusta o recorte e vê a prévia.<br>Várias: você escolhe se quer ajustar cada uma.<br>Estilo "2 lados": escolha as 2 fotos (frente e verso) juntas.</span>
       </label>
       <input type="file" id="input-imagens" name="imagens" accept="image/*" multiple>
       <div id="nomes-arquivos" class="oculto"></div>
@@ -359,16 +359,23 @@
     // ---------------------------------------------------------------
     // Fluxo geral
     // ---------------------------------------------------------------
-    let modoAtual = null;         // "unico" | "lote"
+    let modoAtual = null;         // "unico" | "lote" | "duasFaces"
     let arquivoUnico = null;      // File (fluxo de 1 imagem)
     let boxUnicoAtual = null;     // ultimo recorte confirmado (p/ "Reposicionar")
     let loteArquivos = [];        // File[] (fluxo de lote revisado)
     let loteIndice = 0;
     let loteBoxes = [];
+    let faceArquivos = [];        // [frente, verso] (fluxo de 2 lados)
+    let faceIndice = 0;
+    let faceBoxes = [];
+    let faceBoxesConfirmadas = null; // ultimos 2 recortes confirmados (p/ "Reposicionar")
+    const linkBaixarRecorte = document.getElementById("link-baixar-recorte");
 
     function estiloSelecionado() {
       const el = document.querySelector('input[name="estilo"]:checked');
-      return el ? el.value : "";
+      return el
+        ? { id: el.value, duasFaces: el.dataset.duasFaces === "1" }
+        : { id: "", duasFaces: false };
     }
     // capturado no momento em que o(s) arquivo(s) sao escolhidos, pra
     // "Reposicionar" continuar usando o mesmo estilo mesmo que o usuario
@@ -390,13 +397,28 @@
       if (arquivos.length === 0) return;
       estiloAtual = estiloSelecionado();
 
+      if (estiloAtual.duasFaces && arquivos.length !== 2) {
+        mostrarErro("Esse estilo é de 2 lados: escolha exatamente 2 fotos juntas (frente e verso).");
+        inputImagens.value = "";
+        return;
+      }
+
       nomesArquivosDiv.textContent = "Carregando...";
       nomesArquivosDiv.classList.remove("oculto");
       try {
-        if (arquivos.length === 1) {
+        if (estiloAtual.duasFaces) {
+          modoAtual = "duasFaces";
+          faceArquivos = arquivos;
+          faceIndice = 0;
+          faceBoxes = [];
+          faceBoxesConfirmadas = null;
+          linkBaixarRecorte.classList.add("oculto");
+          await abrirCropperFace(null);
+        } else if (arquivos.length === 1) {
           modoAtual = "unico";
           arquivoUnico = arquivos[0];
           boxUnicoAtual = null;
+          linkBaixarRecorte.classList.remove("oculto");
           const img = await carregarImagemDeArquivo(arquivoUnico);
           cropperProgresso.classList.add("oculto");
           botaoConfirmar.textContent = "Gerar prévia";
@@ -410,6 +432,17 @@
         nomesArquivosDiv.classList.add("oculto");
       }
     });
+
+    async function abrirCropperFace(boxInicial) {
+      const arquivo = faceArquivos[faceIndice];
+      const img = await carregarImagemDeArquivo(arquivo);
+      const rotulo = faceIndice === 0 ? "Frente (1/2)" : "Verso (2/2)";
+      cropperProgresso.textContent = rotulo;
+      cropperProgresso.classList.remove("oculto");
+      botaoConfirmar.textContent = faceIndice === 0 ? "Próxima foto (verso)" : "Gerar prévia";
+      iniciarCropper(img, boxInicial);
+      mostrarView("cropper");
+    }
 
     document.getElementById("botao-lote-direto").addEventListener("click", () => {
       // envia um form de verdade (nao AJAX) pra disparar o download do
@@ -430,7 +463,7 @@
       const inputEstilo = document.createElement("input");
       inputEstilo.type = "hidden";
       inputEstilo.name = "medalha";
-      inputEstilo.value = estiloSelecionado();
+      inputEstilo.value = estiloSelecionado().id;
       form.appendChild(inputEstilo);
       document.body.appendChild(form);
       form.submit();
@@ -458,6 +491,14 @@
       const box = boxAtual();
       if (modoAtual === "unico") {
         await gerarPreviaUnica(arquivoUnico, box);
+      } else if (modoAtual === "duasFaces") {
+        faceBoxes.push(box);
+        if (faceIndice === 0) {
+          faceIndice = 1;
+          await abrirCropperFace(faceBoxesConfirmadas ? faceBoxesConfirmadas[1] : null);
+        } else {
+          await gerarPreviaDuasFaces();
+        }
       } else {
         loteBoxes.push(box);
         if (loteIndice < loteArquivos.length - 1) {
@@ -476,7 +517,7 @@
       try {
         const fd = new FormData();
         fd.append("imagem", arquivo);
-        fd.append("medalha", estiloAtual);
+        fd.append("medalha", estiloAtual.id);
         fd.append("x1", box[0]); fd.append("y1", box[1]);
         fd.append("x2", box[2]); fd.append("y2", box[3]);
         const resp = await fetch("/api/preview", { method: "POST", body: fd });
@@ -499,6 +540,38 @@
       }
     }
 
+    async function gerarPreviaDuasFaces() {
+      limparErro();
+      botaoConfirmar.disabled = true;
+      botaoConfirmar.textContent = "Gerando...";
+      try {
+        const fd = new FormData();
+        fd.append("imagem_frente", faceArquivos[0]);
+        fd.append("imagem_verso", faceArquivos[1]);
+        fd.append("medalha", estiloAtual.id);
+        const [boxFrente, boxVerso] = faceBoxes;
+        fd.append("frente_x1", boxFrente[0]); fd.append("frente_y1", boxFrente[1]);
+        fd.append("frente_x2", boxFrente[2]); fd.append("frente_y2", boxFrente[3]);
+        fd.append("verso_x1", boxVerso[0]); fd.append("verso_y1", boxVerso[1]);
+        fd.append("verso_x2", boxVerso[2]); fd.append("verso_y2", boxVerso[3]);
+        const resp = await fetch("/api/preview-2lados", { method: "POST", body: fd });
+        const dados = await resp.json();
+        if (!resp.ok) throw new Error(dados.erro || "Erro ao gerar prévia.");
+
+        faceBoxesConfirmadas = faceBoxes.slice();
+        document.getElementById("preview-img").src = dados.preview;
+        document.getElementById("link-baixar-previa").href = dados.url_preview;
+        linkBaixarRecorte.classList.add("oculto");
+        mostrarView("preview");
+      } catch (err) {
+        mostrarErro(err.message || String(err));
+        mostrarView("cropper");
+      } finally {
+        botaoConfirmar.disabled = false;
+        botaoConfirmar.textContent = "Gerar prévia";
+      }
+    }
+
     async function gerarLoteRevisado() {
       limparErro();
       botaoConfirmar.disabled = true;
@@ -506,7 +579,7 @@
       try {
         const fd = new FormData();
         loteArquivos.forEach((f) => fd.append("imagens", f));
-        fd.append("medalha", estiloAtual);
+        fd.append("medalha", estiloAtual.id);
         fd.append("caixas", JSON.stringify(loteBoxes));
         const resp = await fetch("/api/lote-revisado", { method: "POST", body: fd });
         const dados = await resp.json();
@@ -530,6 +603,12 @@
     }
 
     document.getElementById("botao-reposicionar").addEventListener("click", async () => {
+      if (modoAtual === "duasFaces") {
+        faceIndice = 0;
+        faceBoxes = [];
+        await abrirCropperFace(faceBoxesConfirmadas ? faceBoxesConfirmadas[0] : null);
+        return;
+      }
       const img = await carregarImagemDeArquivo(arquivoUnico);
       cropperProgresso.classList.add("oculto");
       botaoConfirmar.textContent = "Gerar prévia";

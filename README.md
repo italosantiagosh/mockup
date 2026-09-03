@@ -12,20 +12,43 @@ recorte "cover" + máscara circular + alpha compositing com Pillow, na ordem:
 
 ## Status
 
-Todas as 4 bases cadastradas em `MEDAL_SPECS` (`config.py`) estão
+Todas as 6 bases cadastradas em `MEDAL_SPECS` (`config.py`) estão
 calibradas com os assets reais: `prata_16mm` (Medalha 1 lado Inox),
-`entremeio_prata` e `entremeio_ouro_velho` (para terço) e `chaveiro`
-(Chaveiro 1 lado). Nos três novos estilos, a cavidade interna forma um
-círculo completo e ininterrupto (as argolas ficam inteiramente por fora
-do anel/bezel, sem afinar a parede), então nenhum `keepout_boxes` foi
-necessário — diferente da `prata_16mm` original antes de virar "círculo
-perfeito". Os três reaproveitam `assets/efeito_resina.png` por enquanto
-(cliente decide depois se manda um efeito de resina diferente
-especificamente pra essas peças).
+`entremeio_prata` e `entremeio_ouro_velho` (para terço), `chaveiro`
+(Chaveiro 1 lado) e `medalha_2lados_prata`/`medalha_2lados_ouro_velho`
+(Medalha 2 lados). Nos entremeios/chaveiro/medalha 2 lados a cavidade
+interna forma um círculo completo e ininterrupto (as argolas ficam
+inteiramente por fora do anel/bezel, sem afinar a parede), então nenhum
+`keepout_boxes` foi necessário — diferente da `prata_16mm` original
+antes de virar "círculo perfeito". Todos reaproveitam
+`assets/efeito_resina.png` por enquanto (cliente decide depois se manda
+um efeito de resina diferente pra alguma peça específica).
+
+Nos entremeios e na medalha de 2 lados, `resina_radius` é maior que o
+raio da foto (`inner_radius + espessura_da_borda/2`) — pedido do
+cliente em 2026-09-02/03 pra a resina avançar visivelmente por cima do
+aro metálico, não só cobrir exatamente o mesmo círculo da foto. A
+espessura de cada borda foi medida por varredura radial (raio externo -
+raio interno do aro), documentado nos comentários de `config.py`.
 
 `teste_composicao.png` (na raiz do repo) é o resultado gerado com a
 calibração da `prata_16mm`; comparar com `referencias/` para validar
 antes de gerar o lote completo.
+
+### Peças de 2 lados
+
+`medalha_2lados_prata`/`ouro_velho` são bases físicas próprias (aro fino,
+sem disco sólido atrás — arquivo bem diferente da `prata_16mm`).
+`entremeio_2lados_*` **não** é uma base nova: é a mesma
+`entremeio_prata`/`entremeio_ouro_velho` de 1 lado, só usada duas vezes
+(uma foto na frente, outra no verso) — decisão replicada do repositório
+`catalogo` (site), que já tinha essa peça em produção (ver
+`services/gerador/config.py` e o mapeamento `(formato, cor) -> spec_id`
+em `app.py` de lá). Na versão web daqui (`app.py`/`templates/index.html`),
+um estilo "2 lados" pede as 2 fotos de uma vez, abre o editor de recorte
+duas vezes seguidas (frente, depois verso) e gera **uma única prévia
+lado a lado** (frente | verso) pra revisão/aprovação — sem download
+separado por lado nem suporte a lote ainda (só fluxo de peça única).
 
 ## Instalação
 
@@ -85,6 +108,17 @@ salvar vários arquivos soltos de uma vez, então o `.zip` é o equivalente
 prático disso na web. Se você revisou o recorte de cada uma, tem também
 um segundo botão pra baixar as imagens recortadas 1:1 de todas, no
 ângulo que você escolheu em cada uma.
+
+**Estilo "2 lados"** (Medalha 2 lados, Entremeio 2 lados): ao escolher
+um desses chips, o campo de upload passa a exigir exatamente 2 fotos
+escolhidas juntas (frente e verso) — escolher 1 ou 3+ mostra um aviso
+pedindo pra escolher as 2 juntas. O editor de recorte abre duas vezes
+seguidas ("Frente (1/2)", depois "Verso (2/2)") e o resultado é **uma
+única prévia com as duas faces lado a lado**, com um botão "Baixar
+prévia" só (sem recorte 1:1 separado por lado). "Reposicionar" refaz o
+recorte dos dois lados de novo, pré-carregado com a última posição de
+cada um. Esse fluxo só existe pra peça única — os estilos "2 lados"
+ainda não aparecem no modo de lote (várias imagens de uma vez).
 
 ### Publicar no Render (acesso de qualquer lugar, não só na mesma rede)
 
