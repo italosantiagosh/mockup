@@ -68,12 +68,20 @@ class OpcaoEstilo:
     duas_faces: bool = False
 
 
+# MedalSpecs que so existem pra servir de estilo "2 lados" (base fisica
+# propria, sem versao de 1 lado equivalente) -- excluidas da 1a passada
+# abaixo (1:1 com MEDAL_SPECS) porque entram de novo, marcadas
+# duas_faces=True, no bloco seguinte.
+_SPEC_IDS_SO_2LADOS = ("medalha_2lados_prata", "medalha_2lados_ouro_velho", "chaveiro_2lados")
+
 # Lista de opcoes do seletor de estilo -- ordem = ordem de exibicao pro
-# usuario. As 4 primeiras sao 1:1 com MEDAL_SPECS (id == spec_id); as de
-# "2 lados" sao virtuais (ver OpcaoEstilo acima).
+# usuario. As primeiras sao 1:1 com MEDAL_SPECS (id == spec_id); as de
+# "2 lados" sao virtuais (ver OpcaoEstilo acima) -- "entremeio_2lados_*"
+# reaproveita o spec_id do entremeio de 1 lado (mesma base fisica),
+# enquanto "medalha_2lados_*" e "chaveiro_2lados" tem MedalSpec proprio.
 ESTILOS_DISPONIVEIS: list[OpcaoEstilo] = [
     OpcaoEstilo(spec_id, s.nome, spec_id) for spec_id, s in MEDAL_SPECS.items()
-    if spec_id not in ("medalha_2lados_prata", "medalha_2lados_ouro_velho")
+    if spec_id not in _SPEC_IDS_SO_2LADOS
 ] + [
     OpcaoEstilo("medalha_2lados_prata", MEDAL_SPECS["medalha_2lados_prata"].nome,
                 "medalha_2lados_prata", duas_faces=True),
@@ -83,6 +91,8 @@ ESTILOS_DISPONIVEIS: list[OpcaoEstilo] = [
                 "entremeio_prata", duas_faces=True),
     OpcaoEstilo("entremeio_2lados_ouro_velho", "Entremeio ouro velho 2 lados (para terço)",
                 "entremeio_ouro_velho", duas_faces=True),
+    OpcaoEstilo("chaveiro_2lados", MEDAL_SPECS["chaveiro_2lados"].nome,
+                "chaveiro_2lados", duas_faces=True),
 ]
 _OPCOES_POR_ID = {o.id: o for o in ESTILOS_DISPONIVEIS}
 

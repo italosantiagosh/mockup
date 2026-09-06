@@ -12,11 +12,12 @@ recorte "cover" + máscara circular + alpha compositing com Pillow, na ordem:
 
 ## Status
 
-Todas as 6 bases cadastradas em `MEDAL_SPECS` (`config.py`) estão
+Todas as 7 bases cadastradas em `MEDAL_SPECS` (`config.py`) estão
 calibradas com os assets reais: `prata_16mm` (Medalha 1 lado Inox),
 `entremeio_prata` e `entremeio_ouro_velho` (para terço), `chaveiro`
-(Chaveiro 1 lado) e `medalha_2lados_prata`/`medalha_2lados_ouro_velho`
-(Medalha 2 lados). Nos entremeios/chaveiro/medalha 2 lados a cavidade
+(Chaveiro 1 lado), `medalha_2lados_prata`/`medalha_2lados_ouro_velho`
+(Medalha 2 lados) e `chaveiro_2lados` (Chaveiro 2 lados — só uma cor,
+sem variação ouro velho). Nos entremeios/chaveiro/2 lados a cavidade
 interna forma um círculo completo e ininterrupto (as argolas ficam
 inteiramente por fora do anel/bezel, sem afinar a parede), então nenhum
 `keepout_boxes` foi necessário — diferente da `prata_16mm` original
@@ -37,14 +38,15 @@ antes de gerar o lote completo.
 
 ### Peças de 2 lados
 
-`medalha_2lados_prata`/`ouro_velho` são bases físicas próprias (aro fino,
-sem disco sólido atrás — arquivo bem diferente da `prata_16mm`).
-`entremeio_2lados_*` **não** é uma base nova: é a mesma
-`entremeio_prata`/`entremeio_ouro_velho` de 1 lado, só usada duas vezes
-(uma foto na frente, outra no verso) — decisão replicada do repositório
-`catalogo` (site), que já tinha essa peça em produção (ver
-`services/gerador/config.py` e o mapeamento `(formato, cor) -> spec_id`
-em `app.py` de lá). Na versão web daqui (`app.py`/`templates/index.html`),
+`medalha_2lados_prata`/`ouro_velho` e `chaveiro_2lados` são bases
+físicas próprias (aro fino, sem disco sólido atrás — arquivos bem
+diferentes das versões de 1 lado). `entremeio_2lados_*` **não** é uma
+base nova: é a mesma `entremeio_prata`/`entremeio_ouro_velho` de 1
+lado, só usada duas vezes (uma foto na frente, outra no verso) —
+decisão replicada do repositório `catalogo` (site), que já tinha essas
+peças em produção (ver `services/gerador/config.py` e o mapeamento
+`(formato, cor) -> spec_id` em `app.py` de lá). Na versão web daqui
+(`app.py`/`templates/index.html`),
 um estilo "2 lados" pede as 2 fotos de uma vez, abre o editor de recorte
 duas vezes seguidas (frente, depois verso) e gera **uma única prévia
 lado a lado** (frente | verso) pra revisão/aprovação — sem download
